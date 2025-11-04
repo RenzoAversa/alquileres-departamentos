@@ -69,7 +69,23 @@ const View = {
             return;
         }
 
-        container.innerHTML = departamentos.map(dept => `
+        // ELIMINAR DUPLICADOS ANTES DE RENDERIZAR (por si acaso)
+        const idsVistos = new Set();
+        const departamentosUnicos = [];
+        
+        departamentos.forEach(dept => {
+            if (!idsVistos.has(dept.id)) {
+                idsVistos.add(dept.id);
+                departamentosUnicos.push(dept);
+            }
+        });
+
+        // Si había duplicados, avisar en consola
+        if (departamentos.length !== departamentosUnicos.length) {
+            console.warn(`🛡️ Vista: Bloqueados ${departamentos.length - departamentosUnicos.length} duplicado(s) en renderizado`);
+        }
+
+        container.innerHTML = departamentosUnicos.map(dept => `
             <div class="item-lista" data-id="${dept.id}">
                 <div class="item-info">
                     <h4>${dept.nombre}</h4>
@@ -139,8 +155,24 @@ const View = {
             return;
         }
 
+        // ELIMINAR DUPLICADOS ANTES DE RENDERIZAR (por si acaso)
+        const idsVistos = new Set();
+        const reservasUnicas = [];
+        
+        reservas.forEach(res => {
+            if (!idsVistos.has(res.id)) {
+                idsVistos.add(res.id);
+                reservasUnicas.push(res);
+            }
+        });
+
+        // Si había duplicados, avisar en consola
+        if (reservas.length !== reservasUnicas.length) {
+            console.warn(`🛡️ Vista: Bloqueados ${reservas.length - reservasUnicas.length} reserva(s) duplicada(s) en renderizado`);
+        }
+
         // Ordenar reservas por fecha de entrada (más reciente primero)
-        const reservasOrdenadas = [...reservas].sort((a, b) => 
+        const reservasOrdenadas = [...reservasUnicas].sort((a, b) => 
             new Date(b.fechaEntrada) - new Date(a.fechaEntrada)
         );
 
