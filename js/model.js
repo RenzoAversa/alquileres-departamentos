@@ -139,12 +139,19 @@ const Model = {
                         const newDept = { id: change.doc.id, ...change.doc.data() };
                         
                         if (index >= 0) {
+                            // Actualizar existente
                             departamentos[index] = newDept;
                         } else {
-                            departamentos.push(newDept);
+                            // Agregar nuevo solo si NO existe
+                            const yaExiste = departamentos.some(d => d.id === change.doc.id);
+                            if (!yaExiste) {
+                                departamentos.push(newDept);
+                            }
                         }
                         
-                        localStorage.setItem('departamentos', JSON.stringify(departamentos));
+                        // Limpiar duplicados antes de guardar
+                        const sinDuplicados = this.eliminarDuplicadosPorId(departamentos);
+                        localStorage.setItem('departamentos', JSON.stringify(sinDuplicados));
                     } else if (change.type === "removed") {
                         const departamentos = this.obtenerDepartamentos();
                         const filtered = departamentos.filter(d => d.id !== change.doc.id);
@@ -173,12 +180,19 @@ const Model = {
                         const newReserva = { id: change.doc.id, ...change.doc.data() };
                         
                         if (index >= 0) {
+                            // Actualizar existente
                             reservas[index] = newReserva;
                         } else {
-                            reservas.push(newReserva);
+                            // Agregar nuevo solo si NO existe
+                            const yaExiste = reservas.some(r => r.id === change.doc.id);
+                            if (!yaExiste) {
+                                reservas.push(newReserva);
+                            }
                         }
                         
-                        localStorage.setItem('reservas', JSON.stringify(reservas));
+                        // Limpiar duplicados antes de guardar
+                        const sinDuplicados = this.eliminarDuplicadosPorId(reservas);
+                        localStorage.setItem('reservas', JSON.stringify(sinDuplicados));
                     } else if (change.type === "removed") {
                         const reservas = this.obtenerReservas();
                         const filtered = reservas.filter(r => r.id !== change.doc.id);
@@ -197,15 +211,47 @@ const Model = {
     },
 
     // ========================================
+    // UTILIDADES
+    // ========================================
+    
+    /**
+     * Eliminar duplicados de un array por ID
+     * @param {Array} items - Array con posibles duplicados
+     * @returns {Array} Array sin duplicados
+     */
+    eliminarDuplicadosPorId(items) {
+        const idsVistos = new Set();
+        const itemsUnicos = [];
+        
+        items.forEach(item => {
+            if (item.id && !idsVistos.has(item.id)) {
+                idsVistos.add(item.id);
+                itemsUnicos.push(item);
+            }
+        });
+        
+        return itemsUnicos;
+    },
+
+    // ========================================
     // CRUD DEPARTAMENTOS
     // ========================================
     
     /**
-     * Obtener todos los departamentos
+     * Obtener todos los departamentos (sin duplicados)
      * @returns {Array} Lista de departamentos
      */
     obtenerDepartamentos() {
-        return JSON.parse(localStorage.getItem('departamentos')) || [];
+        const departamentos = JSON.parse(localStorage.getItem('departamentos')) || [];
+        const sinDuplicados = this.eliminarDuplicadosPorId(departamentos);
+        
+        // Si se encontraron duplicados, limpiar localStorage
+        if (departamentos.length !== sinDuplicados.length) {
+            console.warn(`🧹 Limpiando ${departamentos.length - sinDuplicados.length} departamento(s) duplicado(s)`);
+            localStorage.setItem('departamentos', JSON.stringify(sinDuplicados));
+        }
+        
+        return sinDuplicados;
     },
 
     /**
@@ -251,9 +297,19 @@ const Model = {
             nuevoDepartamento.id = this.generarId();
         }
 
-        // Guardar en localStorage
+        // Guardar en localStorage (VERIFICAR que no exista ya)
         const departamentos = this.obtenerDepartamentos();
-        departamentos.push(nuevoDepartamento);
+        
+        // Verificar si ya existe este ID
+        const yaExiste = departamentos.some(dept => dept.id === nuevoDepartamento.id);
+        if (yaExiste) {
+            console.warn('⚠️ Departamento con este ID ya existe, actualizando en lugar de duplicar');
+            const index = departamentos.findIndex(dept => dept.id === nuevoDepartamento.id);
+            departamentos[index] = nuevoDepartamento;
+        } else {
+            departamentos.push(nuevoDepartamento);
+        }
+        
         localStorage.setItem('departamentos', JSON.stringify(departamentos));
         
         return nuevoDepartamento;
@@ -337,11 +393,20 @@ const Model = {
     // ========================================
     
     /**
-     * Obtener todas las reservas
+     * Obtener todas las reservas (sin duplicados)
      * @returns {Array} Lista de reservas
      */
     obtenerReservas() {
-        return JSON.parse(localStorage.getItem('reservas')) || [];
+        const reservas = JSON.parse(localStorage.getItem('reservas')) || [];
+        const sinDuplicados = this.eliminarDuplicadosPorId(reservas);
+        
+        // Si se encontraron duplicados, limpiar localStorage
+        if (reservas.length !== sinDuplicados.length) {
+            console.warn(`🧹 Limpiando ${reservas.length - sinDuplicados.length} reserva(s) duplicada(s)`);
+            localStorage.setItem('reservas', JSON.stringify(sinDuplicados));
+        }
+        
+        return sinDuplicados;
     },
 
     /**
@@ -407,9 +472,19 @@ const Model = {
             nuevaReserva.id = this.generarId();
         }
 
-        // Guardar en localStorage
+        // Guardar en localStorage (VERIFICAR que no exista ya)
         const reservas = this.obtenerReservas();
-        reservas.push(nuevaReserva);
+        
+        // Verificar si ya existe este ID
+        const yaExiste = reservas.some(res => res.id === nuevaReserva.id);
+        if (yaExiste) {
+            console.warn('⚠️ Reserva con este ID ya existe, actualizando en lugar de duplicar');
+            const index = reservas.findIndex(res => res.id === nuevaReserva.id);
+            reservas[index] = nuevaReserva;
+        } else {
+            reservas.push(nuevaReserva);
+        }
+        
         localStorage.setItem('reservas', JSON.stringify(reservas));
         
         return nuevaReserva;
