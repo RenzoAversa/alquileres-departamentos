@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🔧 Fix Duplicados</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .container {
+            max-width: 600px;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            padding: 40px;
+            text-align: center;
+        }
+        
+        h1 {
+            color: #333;
+            margin-bottom: 20px;
+            font-size: 2rem;
+        }
+        
+        .status {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 10px;
+            margin: 20px 0;
+            border-left: 5px solid #667eea;
+        }
+        
+        .status h3 {
+            color: #667eea;
+            margin-bottom: 10px;
+        }
+        
+        .stats {
+            font-size: 1.2rem;
+            margin: 10px 0;
+        }
+        
+        .stats strong {
+            color: #667eea;
+        }
+        
+        .btn {
+            padding: 15px 40px;
+            border: none;
+            border-radius: 25px;
+            font-size: 1.1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin: 10px;
+        }
+        
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background: #5568d3;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+        
+        .btn-success {
+            background: #28a745;
+            color: white;
+        }
+        
+        .alert {
+            padding: 15px;
+            border-radius: 10px;
+            margin: 20px 0;
+        }
+        
+        .alert-success {
+            background: #d4edda;
+            border-left: 5px solid #28a745;
+            color: #155724;
+        }
+        
+        .alert-warning {
+            background: #fff3cd;
+            border-left: 5px solid #ffc107;
+            color: #856404;
+        }
+        
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 20px auto;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔧 Reparar Duplicados</h1>
+        
+        <div id="status" class="status">
+            <h3>📊 Estado Actual</h3>
+            <div class="stats">
+                Departamentos en LocalStorage: <strong id="count-before">0</strong>
+            </div>
+            <div class="stats">
+                Duplicados detectados: <strong id="duplicates-count" style="color: #dc3545;">0</strong>
+            </div>
+        </div>
+        
+        <div id="actions">
+            <button class="btn btn-primary" onclick="limpiarDuplicados()">
+                🔧 Limpiar Duplicados del LocalStorage
+            </button>
+            <br>
+            <button class="btn btn-success" onclick="window.location.href='index.html'">
+                ← Volver a la App
+            </button>
+        </div>
+        
+        <div id="result" style="display: none;"></div>
+    </div>
+
+    <script>
+        // Analizar estado actual
+        function analizarEstado() {
+            const departamentos = JSON.parse(localStorage.getItem('departamentos')) || [];
+            const reservas = JSON.parse(localStorage.getItem('reservas')) || [];
+            
+            // Contar duplicados por ID
+            const idsVistos = new Set();
+            let duplicados = 0;
+            
+            departamentos.forEach(dept => {
+                if (idsVistos.has(dept.id)) {
+                    duplicados++;
+                } else {
+                    idsVistos.add(dept.id);
+                }
+            });
+            
+            document.getElementById('count-before').textContent = departamentos.length;
+            document.getElementById('duplicates-count').textContent = duplicados;
+            
+            if (duplicados === 0) {
+                document.getElementById('status').innerHTML = `
+                    <div class="alert alert-success">
+                        <strong>✅ ¡Todo está bien!</strong><br>
+                        No se detectaron duplicados en el LocalStorage.
+                    </div>
+                `;
+            }
+            
+            return { departamentos, reservas, duplicados };
+        }
+        
+        function limpiarDuplicados() {
+            const { departamentos, reservas, duplicados } = analizarEstado();
+            
+            if (duplicados === 0) {
+                alert('✅ No hay duplicados para limpiar');
+                return;
+            }
+            
+            if (!confirm(`Se eliminarán ${duplicados} departamento(s) duplicado(s). ¿Continuar?`)) {
+                return;
+            }
+            
+            // Mostrar spinner
+            document.getElementById('actions').innerHTML = '<div class="spinner"></div><p>Limpiando...</p>';
+            
+            // Eliminar duplicados (mantener solo la primera ocurrencia de cada ID)
+            const idsUnicos = new Set();
+            const departamentosLimpios = [];
+            
+            departamentos.forEach(dept => {
+                if (!idsUnicos.has(dept.id)) {
+                    idsUnicos.add(dept.id);
+                    departamentosLimpios.push(dept);
+                }
+            });
+            
+            // Hacer lo mismo con reservas
+            const idsReservasUnicos = new Set();
+            const reservasLimpias = [];
+            
+            reservas.forEach(res => {
+                if (!idsReservasUnicos.has(res.id)) {
+                    idsReservasUnicos.add(res.id);
+                    reservasLimpias.push(res);
+                }
+            });
+            
+            // Guardar datos limpios
+            localStorage.setItem('departamentos', JSON.stringify(departamentosLimpios));
+            localStorage.setItem('reservas', JSON.stringify(reservasLimpias));
+            
+            // Mostrar resultado
+            setTimeout(() => {
+                document.getElementById('result').style.display = 'block';
+                document.getElementById('result').innerHTML = `
+                    <div class="alert alert-success">
+                        <strong>✅ ¡Duplicados eliminados!</strong><br><br>
+                        <div class="stats">Antes: <strong>${departamentos.length}</strong> departamentos</div>
+                        <div class="stats">Después: <strong>${departamentosLimpios.length}</strong> departamentos</div>
+                        <div class="stats">Eliminados: <strong>${departamentos.length - departamentosLimpios.length}</strong></div>
+                    </div>
+                    <button class="btn btn-success" onclick="window.location.href='index.html'">
+                        🎉 Ir a la App
+                    </button>
+                `;
+                document.getElementById('actions').style.display = 'none';
+                document.getElementById('status').style.display = 'none';
+            }, 1000);
+        }
+        
+        // Analizar al cargar
+        analizarEstado();
+    </script>
+</body>
+</html>
