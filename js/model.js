@@ -314,6 +314,83 @@ const Model = {
         return reservas.filter(res => res.departamentoId === departamentoId);
     },
 
+    /**
+     * Obtener fechas reservadas de un departamento en un mes específico
+     * @param {string} departamentoId - ID del departamento
+     * @param {number} anio - Año
+     * @param {number} mes - Mes (0-11)
+     * @returns {Object} Objeto con fechas reservadas y detalles
+     */
+    obtenerReservasPorMes(departamentoId, anio, mes) {
+        const reservas = this.obtenerReservasPorDepartamento(departamentoId);
+        const fechasReservadas = new Map();
+
+        reservas.forEach(reserva => {
+            const fechaEntrada = new Date(reserva.fechaEntrada);
+            const fechaSalida = new Date(reserva.fechaSalida);
+            
+            // Iterar por cada día de la reserva
+            let fechaActual = new Date(fechaEntrada);
+            while (fechaActual <= fechaSalida) {
+                const anioActual = fechaActual.getFullYear();
+                const mesActual = fechaActual.getMonth();
+                
+                if (anioActual === anio && mesActual === mes) {
+                    const dia = fechaActual.getDate();
+                    const clave = `${anio}-${mes}-${dia}`;
+                    
+                    // Determinar tipo de día
+                    let tipo = 'reservado';
+                    if (fechaActual.getTime() === fechaEntrada.getTime()) {
+                        tipo = 'inicio';
+                    } else if (fechaActual.getTime() === fechaSalida.getTime()) {
+                        tipo = 'fin';
+                    }
+                    
+                    fechasReservadas.set(clave, {
+                        dia: dia,
+                        tipo: tipo,
+                        huesped: reserva.huesped,
+                        reservaId: reserva.id
+                    });
+                }
+                
+                fechaActual.setDate(fechaActual.getDate() + 1);
+            }
+        });
+
+        return fechasReservadas;
+    },
+
+    /**
+     * Verificar si una fecha específica está reservada
+     * @param {string} departamentoId - ID del departamento
+     * @param {Date} fecha - Fecha a verificar
+     * @returns {Object|null} Información de la reserva o null si está disponible
+     */
+    verificarFechaReservada(departamentoId, fecha) {
+        const reservas = this.obtenerReservasPorDepartamento(departamentoId);
+        const fechaBuscar = new Date(fecha);
+        fechaBuscar.setHours(0, 0, 0, 0);
+
+        for (const reserva of reservas) {
+            const fechaEntrada = new Date(reserva.fechaEntrada);
+            const fechaSalida = new Date(reserva.fechaSalida);
+            fechaEntrada.setHours(0, 0, 0, 0);
+            fechaSalida.setHours(0, 0, 0, 0);
+
+            if (fechaBuscar >= fechaEntrada && fechaBuscar <= fechaSalida) {
+                return {
+                    reserva: reserva,
+                    tipo: fechaBuscar.getTime() === fechaEntrada.getTime() ? 'inicio' :
+                          fechaBuscar.getTime() === fechaSalida.getTime() ? 'fin' : 'reservado'
+                };
+            }
+        }
+
+        return null;
+    },
+
     // ========================================
     // UTILIDADES
     // ========================================

@@ -33,6 +33,7 @@
             <button class="tab-btn active" data-tab="departamentos">Departamentos</button>
             <button class="tab-btn" data-tab="reservas">Reservas</button>
             <button class="tab-btn" data-tab="buscador">Buscar Disponibilidad</button>
+            <button class="tab-btn" data-tab="calendario">📅 Calendario</button>
         </div>
 
         <!-- ======================== -->
@@ -162,6 +163,76 @@
                 <h3>Resultados</h3>
                 <div id="resultados-busqueda">
                     <p class="text-muted">Use los filtros anteriores para buscar departamentos disponibles.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- ======================== -->
+        <!-- TAB: CALENDARIO -->
+        <!-- ======================== -->
+        <section id="tab-calendario" class="tab-content">
+            <h2>📅 Calendario de Disponibilidad</h2>
+            
+            <!-- Selector de departamento -->
+            <div class="card">
+                <h3>Seleccionar Departamento</h3>
+                <div class="calendario-selector">
+                    <div class="form-group">
+                        <label for="calendario-departamento">Departamento</label>
+                        <select id="calendario-departamento" class="form-control">
+                            <option value="">Seleccione un departamento</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Información del departamento -->
+                <div class="calendario-info" id="calendario-info-texto">
+                    <p class="text-muted">Selecciona un departamento para ver su calendario</p>
+                </div>
+            </div>
+
+            <!-- Calendario -->
+            <div class="card">
+                <div class="calendario-container">
+                    <!-- Header con navegación -->
+                    <div class="calendario-header">
+                        <h3>Calendario Mensual</h3>
+                        <div class="calendario-navegacion">
+                            <button class="btn-nav" id="btn-prev-mes" title="Mes anterior">◀</button>
+                            <span class="mes-actual" id="mes-actual">-</span>
+                            <button class="btn-nav" id="btn-next-mes" title="Mes siguiente">▶</button>
+                            <button class="btn-nav" id="btn-hoy" title="Ir a hoy">Hoy</button>
+                        </div>
+                    </div>
+
+                    <!-- Grid del calendario -->
+                    <div class="calendario-grid" id="calendario-grid">
+                        <!-- Se llenará dinámicamente -->
+                    </div>
+
+                    <!-- Leyenda -->
+                    <div class="calendario-leyenda">
+                        <div class="leyenda-item">
+                            <div class="leyenda-color disponible"></div>
+                            <span>Disponible</span>
+                        </div>
+                        <div class="leyenda-item">
+                            <div class="leyenda-color reservado"></div>
+                            <span>Reservado</span>
+                        </div>
+                        <div class="leyenda-item">
+                            <div class="leyenda-color inicio"></div>
+                            <span>Inicio reserva</span>
+                        </div>
+                        <div class="leyenda-item">
+                            <div class="leyenda-color fin"></div>
+                            <span>Fin reserva</span>
+                        </div>
+                        <div class="leyenda-item">
+                            <div class="leyenda-color hoy"></div>
+                            <span>Hoy</span>
+                        </div>
+                    </div>
                 </div>
             </div>
         </section>

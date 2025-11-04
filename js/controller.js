@@ -19,6 +19,7 @@ const Controller = {
         this.configurarEventosDepartamentos();
         this.configurarEventosReservas();
         this.configurarEventosBusqueda();
+        this.configurarEventosCalendario();
         
         // Configurar fechas mínimas
         View.configurarFechasMinimas();
@@ -47,6 +48,11 @@ const Controller = {
                 if (tabName === 'reservas') {
                     const departamentos = Model.obtenerDepartamentos();
                     View.llenarSelectDepartamentos(departamentos);
+                }
+                
+                // Si cambia a calendario, inicializar calendario
+                if (tabName === 'calendario') {
+                    this.inicializarCalendario();
                 }
             });
         });
@@ -411,6 +417,131 @@ const Controller = {
             }
         } catch (error) {
             View.mostrarAlerta('❌ Error en la búsqueda: ' + error.message, 'error');
+        }
+    },
+
+    // ========================================
+    // EVENTOS DE CALENDARIO
+    // ========================================
+    
+    /**
+     * Configurar eventos del calendario
+     */
+    configurarEventosCalendario() {
+        // Cambio de departamento
+        const selectDept = document.getElementById('calendario-departamento');
+        if (selectDept) {
+            selectDept.addEventListener('change', (e) => {
+                const departamentoId = e.target.value;
+                if (departamentoId) {
+                    this.actualizarCalendario(departamentoId);
+                } else {
+                    View.mostrarMensajeCalendarioVacio();
+                }
+            });
+        }
+
+        // Botones de navegación
+        const btnPrevMes = document.getElementById('btn-prev-mes');
+        const btnNextMes = document.getElementById('btn-next-mes');
+        const btnHoy = document.getElementById('btn-hoy');
+
+        if (btnPrevMes) {
+            btnPrevMes.addEventListener('click', () => {
+                this.cambiarMesCalendario(-1);
+            });
+        }
+
+        if (btnNextMes) {
+            btnNextMes.addEventListener('click', () => {
+                this.cambiarMesCalendario(1);
+            });
+        }
+
+        if (btnHoy) {
+            btnHoy.addEventListener('click', () => {
+                const selectDept = document.getElementById('calendario-departamento');
+                if (selectDept && selectDept.value) {
+                    this.calendarioActual = {
+                        departamentoId: selectDept.value,
+                        anio: new Date().getFullYear(),
+                        mes: new Date().getMonth()
+                    };
+                    this.actualizarCalendario(selectDept.value);
+                } else {
+                    View.mostrarAlerta('Selecciona un departamento primero', 'info');
+                }
+            });
+        }
+    },
+
+    /**
+     * Actualizar el calendario para un departamento
+     * @param {string} departamentoId - ID del departamento
+     */
+    actualizarCalendario(departamentoId) {
+        if (!this.calendarioActual) {
+            this.calendarioActual = {
+                departamentoId: departamentoId,
+                anio: new Date().getFullYear(),
+                mes: new Date().getMonth()
+            };
+        } else {
+            this.calendarioActual.departamentoId = departamentoId;
+        }
+
+        const departamento = Model.obtenerDepartamentoPorId(departamentoId);
+        if (!departamento) {
+            View.mostrarAlerta('Departamento no encontrado', 'error');
+            return;
+        }
+
+        const reservas = Model.obtenerReservasPorDepartamento(departamentoId);
+        
+        View.renderizarCalendario(
+            departamentoId,
+            this.calendarioActual.anio,
+            this.calendarioActual.mes
+        );
+
+        View.actualizarInfoCalendario(departamento, reservas.length);
+    },
+
+    /**
+     * Cambiar mes del calendario
+     * @param {number} direccion - 1 para siguiente mes, -1 para mes anterior
+     */
+    cambiarMesCalendario(direccion) {
+        if (!this.calendarioActual || !this.calendarioActual.departamentoId) {
+            View.mostrarAlerta('Selecciona un departamento primero', 'info');
+            return;
+        }
+
+        this.calendarioActual.mes += direccion;
+
+        // Ajustar año si es necesario
+        if (this.calendarioActual.mes > 11) {
+            this.calendarioActual.mes = 0;
+            this.calendarioActual.anio++;
+        } else if (this.calendarioActual.mes < 0) {
+            this.calendarioActual.mes = 11;
+            this.calendarioActual.anio--;
+        }
+
+        this.actualizarCalendario(this.calendarioActual.departamentoId);
+    },
+
+    /**
+     * Inicializar calendario cuando se cambia a la pestaña
+     */
+    inicializarCalendario() {
+        const departamentos = Model.obtenerDepartamentos();
+        View.llenarSelectCalendario(departamentos);
+        
+        if (departamentos.length === 0) {
+            View.mostrarAlerta('No hay departamentos registrados. Crea uno primero.', 'info');
+        } else {
+            View.mostrarMensajeCalendarioVacio();
         }
     },
 

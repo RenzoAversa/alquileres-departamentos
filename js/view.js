@@ -391,6 +391,153 @@ const View = {
         this.elements.reservaSalida.min = hoy;
         this.elements.buscarEntrada.min = hoy;
         this.elements.buscarSalida.min = hoy;
+    },
+
+    // ========================================
+    // CALENDARIO
+    // ========================================
+
+    /**
+     * Renderizar calendario para un mes específico
+     * @param {string} departamentoId - ID del departamento
+     * @param {number} anio - Año
+     * @param {number} mes - Mes (0-11)
+     */
+    renderizarCalendario(departamentoId, anio, mes) {
+        const container = document.getElementById('calendario-grid');
+        if (!container) return;
+
+        // Obtener información del mes
+        const primerDia = new Date(anio, mes, 1);
+        const ultimoDia = new Date(anio, mes + 1, 0);
+        const diasEnMes = ultimoDia.getDate();
+        const primerDiaSemana = primerDia.getDay(); // 0 = Domingo
+        
+        // Obtener reservas del mes
+        const fechasReservadas = Model.obtenerReservasPorMes(departamentoId, anio, mes);
+        
+        // Fecha de hoy
+        const hoy = new Date();
+        hoy.setHours(0, 0, 0, 0);
+
+        // Actualizar el título del mes
+        const meses = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+                       'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+        const mesActualElement = document.getElementById('mes-actual');
+        if (mesActualElement) {
+            mesActualElement.textContent = `${meses[mes]} ${anio}`;
+        }
+
+        // Limpiar el contenedor
+        container.innerHTML = '';
+
+        // Añadir headers de días
+        const diasSemana = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
+        diasSemana.forEach(dia => {
+            const header = document.createElement('div');
+            header.className = 'dia-header';
+            header.textContent = dia;
+            container.appendChild(header);
+        });
+
+        // Añadir días vacíos al inicio
+        for (let i = 0; i < primerDiaSemana; i++) {
+            const diaVacio = document.createElement('div');
+            diaVacio.className = 'dia otro-mes';
+            container.appendChild(diaVacio);
+        }
+
+        // Añadir días del mes
+        for (let dia = 1; dia <= diasEnMes; dia++) {
+            const diaElement = document.createElement('div');
+            diaElement.className = 'dia';
+            diaElement.textContent = dia;
+
+            // Verificar si es hoy
+            const fechaActual = new Date(anio, mes, dia);
+            if (fechaActual.getTime() === hoy.getTime()) {
+                diaElement.classList.add('hoy');
+            }
+
+            // Verificar si está reservado
+            const clave = `${anio}-${mes}-${dia}`;
+            if (fechasReservadas.has(clave)) {
+                const reservaInfo = fechasReservadas.get(clave);
+                diaElement.classList.add('reservado');
+                
+                if (reservaInfo.tipo === 'inicio') {
+                    diaElement.classList.add('inicio-reserva');
+                } else if (reservaInfo.tipo === 'fin') {
+                    diaElement.classList.add('fin-reserva');
+                }
+
+                // Añadir tooltip
+                const tooltip = document.createElement('div');
+                tooltip.className = 'dia-tooltip';
+                tooltip.textContent = `Reservado: ${reservaInfo.huesped}`;
+                diaElement.appendChild(tooltip);
+            } else if (fechaActual >= hoy) {
+                diaElement.classList.add('disponible');
+            }
+
+            container.appendChild(diaElement);
+        }
+    },
+
+    /**
+     * Llenar el select de departamentos en el calendario
+     * @param {Array} departamentos - Lista de departamentos
+     */
+    llenarSelectCalendario(departamentos) {
+        const select = document.getElementById('calendario-departamento');
+        if (!select) return;
+
+        select.innerHTML = '<option value="">Seleccione un departamento</option>';
+        
+        departamentos.forEach(dept => {
+            const option = document.createElement('option');
+            option.value = dept.id;
+            option.textContent = dept.nombre;
+            select.appendChild(option);
+        });
+    },
+
+    /**
+     * Actualizar información del calendario
+     * @param {Object} departamento - Datos del departamento
+     * @param {number} totalReservas - Total de reservas del departamento
+     */
+    actualizarInfoCalendario(departamento, totalReservas) {
+        const infoElement = document.getElementById('calendario-info-texto');
+        if (!infoElement || !departamento) return;
+
+        infoElement.innerHTML = `
+            <p><strong>Departamento:</strong> ${departamento.nombre}</p>
+            <p><strong>Capacidad:</strong> ${departamento.capacidad} persona${departamento.capacidad !== 1 ? 's' : ''}</p>
+            <p><strong>Total de reservas:</strong> ${totalReservas}</p>
+        `;
+    },
+
+    /**
+     * Mostrar mensaje cuando no hay departamento seleccionado
+     */
+    mostrarMensajeCalendarioVacio() {
+        const container = document.getElementById('calendario-grid');
+        if (!container) return;
+
+        container.innerHTML = `
+            <div style="grid-column: 1 / -1; text-align: center; padding: 40px 20px;">
+                <div class="empty-state">
+                    <div class="icon">📅</div>
+                    <p>Selecciona un departamento para ver su calendario de disponibilidad</p>
+                </div>
+            </div>
+        `;
+
+        const infoElement = document.getElementById('calendario-info-texto');
+        if (infoElement) {
+            infoElement.innerHTML = '<p class="text-muted">Selecciona un departamento del menú desplegable</p>';
+        }
     }
 };
 
