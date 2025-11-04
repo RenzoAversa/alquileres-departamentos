@@ -1,23 +1,179 @@
 // ========================================
 // MODEL.JS - Capa de Modelo (MVC)
-// Maneja toda la lógica de datos y LocalStorage
+// Maneja toda la lógica de datos con Firebase Firestore
 // ========================================
 
 const Model = {
+    // Estado de Firebase
+    useFirebase: false,
+    db: null,
+    firebaseApp: null,
+
     // ========================================
     // INICIALIZACIÓN
     // ========================================
     
     /**
-     * Inicializar LocalStorage si no existe
+     * Inicializar el modelo (LocalStorage y Firebase)
      */
-    init() {
+    async init() {
+        // Inicializar LocalStorage
         if (!localStorage.getItem('departamentos')) {
             localStorage.setItem('departamentos', JSON.stringify([]));
         }
         if (!localStorage.getItem('reservas')) {
             localStorage.setItem('reservas', JSON.stringify([]));
         }
+
+        // Intentar inicializar Firebase
+        try {
+            await this.initFirebase();
+        } catch (error) {
+            console.warn('⚠️ Firebase no configurado, usando solo LocalStorage:', error.message);
+        }
+    },
+
+    /**
+     * Inicializar Firebase
+     */
+    async initFirebase() {
+        // Verificar si existe la configuración
+        if (!window.firebaseConfig || window.firebaseConfig.apiKey === "TU_API_KEY_AQUI") {
+            throw new Error('Firebase no configurado. Ver SETUP-FIREBASE.md');
+        }
+
+        try {
+            // Importar Firebase desde CDN
+            const { initializeApp } = await import('https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js');
+            const { getFirestore, collection, getDocs, addDoc, updateDoc, deleteDoc, doc, onSnapshot } = 
+                await import('https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js');
+
+            // Inicializar Firebase
+            this.firebaseApp = initializeApp(window.firebaseConfig);
+            this.db = getFirestore(this.firebaseApp);
+            this.useFirebase = true;
+
+            // Guardar funciones de Firestore
+            this.firestore = { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, onSnapshot };
+
+            console.log('✅ Firebase inicializado correctamente');
+
+            // Sincronizar datos al iniciar
+            await this.sincronizarDesdeFirebase();
+
+            // Escuchar cambios en tiempo real
+            this.escucharCambiosFirebase();
+
+        } catch (error) {
+            console.error('❌ Error al inicializar Firebase:', error);
+            throw error;
+        }
+    },
+
+    /**
+     * Sincronizar datos desde Firebase a LocalStorage
+     */
+    async sincronizarDesdeFirebase() {
+        if (!this.useFirebase) return;
+
+        try {
+            // Obtener departamentos
+            const deptsSnapshot = await this.firestore.getDocs(
+                this.firestore.collection(this.db, 'departamentos')
+            );
+            const departamentos = deptsSnapshot.docs.map(doc => ({
+                id: doc.id,
+                ...doc.data()
+            }));
+
+            // Obtener reservas
+            const reservasSnapshot = await this.firestore.getDocs(
+                this.firestore.collection(this.db, 'reservas')
+            );
+            const reservas = reservasSnapshot.docs.map(doc => ({
+                id: doc.id,
+                ...doc.data()
+            }));
+
+            // Guardar en LocalStorage
+            localStorage.setItem('departamentos', JSON.stringify(departamentos));
+            localStorage.setItem('reservas', JSON.stringify(reservas));
+
+            console.log('🔄 Datos sincronizados desde Firebase');
+        } catch (error) {
+            console.error('❌ Error al sincronizar desde Firebase:', error);
+        }
+    },
+
+    /**
+     * Escuchar cambios en tiempo real de Firebase
+     */
+    escucharCambiosFirebase() {
+        if (!this.useFirebase) return;
+
+        // Escuchar departamentos
+        this.firestore.onSnapshot(
+            this.firestore.collection(this.db, 'departamentos'),
+            (snapshot) => {
+                snapshot.docChanges().forEach((change) => {
+                    if (change.type === "added" || change.type === "modified") {
+                        const departamentos = this.obtenerDepartamentos();
+                        const index = departamentos.findIndex(d => d.id === change.doc.id);
+                        const newDept = { id: change.doc.id, ...change.doc.data() };
+                        
+                        if (index >= 0) {
+                            departamentos[index] = newDept;
+                        } else {
+                            departamentos.push(newDept);
+                        }
+                        
+                        localStorage.setItem('departamentos', JSON.stringify(departamentos));
+                    } else if (change.type === "removed") {
+                        const departamentos = this.obtenerDepartamentos();
+                        const filtered = departamentos.filter(d => d.id !== change.doc.id);
+                        localStorage.setItem('departamentos', JSON.stringify(filtered));
+                    }
+                });
+                
+                // Notificar a la vista si existe
+                if (window.Controller && window.Controller.actualizarVistaDepartamentos) {
+                    window.Controller.actualizarVistaDepartamentos();
+                }
+            }
+        );
+
+        // Escuchar reservas
+        this.firestore.onSnapshot(
+            this.firestore.collection(this.db, 'reservas'),
+            (snapshot) => {
+                snapshot.docChanges().forEach((change) => {
+                    if (change.type === "added" || change.type === "modified") {
+                        const reservas = this.obtenerReservas();
+                        const index = reservas.findIndex(r => r.id === change.doc.id);
+                        const newReserva = { id: change.doc.id, ...change.doc.data() };
+                        
+                        if (index >= 0) {
+                            reservas[index] = newReserva;
+                        } else {
+                            reservas.push(newReserva);
+                        }
+                        
+                        localStorage.setItem('reservas', JSON.stringify(reservas));
+                    } else if (change.type === "removed") {
+                        const reservas = this.obtenerReservas();
+                        const filtered = reservas.filter(r => r.id !== change.doc.id);
+                        localStorage.setItem('reservas', JSON.stringify(filtered));
+                    }
+                });
+                
+                // Notificar a la vista si existe
+                if (window.Controller && window.Controller.actualizarVistaReservas) {
+                    window.Controller.actualizarVistaReservas();
+                }
+            }
+        );
+
+        console.log('👂 Escuchando cambios en tiempo real de Firebase');
     },
 
     // ========================================
@@ -47,8 +203,7 @@ const Model = {
      * @param {Object} departamento - Datos del departamento
      * @returns {Object} Departamento creado
      */
-    crearDepartamento(departamento) {
-        const departamentos = this.obtenerDepartamentos();
+    async crearDepartamento(departamento) {
         const nuevoDepartamento = {
             id: this.generarId(),
             nombre: departamento.nombre.trim(),
@@ -57,8 +212,23 @@ const Model = {
             fechaCreacion: new Date().toISOString()
         };
         
+        const departamentos = this.obtenerDepartamentos();
         departamentos.push(nuevoDepartamento);
         localStorage.setItem('departamentos', JSON.stringify(departamentos));
+
+        // Sincronizar con Firebase si está habilitado
+        if (this.useFirebase) {
+            try {
+                const docRef = await this.firestore.addDoc(
+                    this.firestore.collection(this.db, 'departamentos'),
+                    nuevoDepartamento
+                );
+                console.log('🔥 Departamento guardado en Firebase:', docRef.id);
+            } catch (error) {
+                console.error('❌ Error al guardar en Firebase:', error);
+            }
+        }
+        
         return nuevoDepartamento;
     },
 
@@ -68,7 +238,7 @@ const Model = {
      * @param {Object} datosActualizados - Nuevos datos
      * @returns {Object|null} Departamento actualizado o null
      */
-    actualizarDepartamento(id, datosActualizados) {
+    async actualizarDepartamento(id, datosActualizados) {
         const departamentos = this.obtenerDepartamentos();
         const index = departamentos.findIndex(dept => dept.id === id);
         
@@ -83,6 +253,18 @@ const Model = {
         };
         
         localStorage.setItem('departamentos', JSON.stringify(departamentos));
+
+        // Sincronizar con Firebase si está habilitado
+        if (this.useFirebase) {
+            try {
+                const docRef = this.firestore.doc(this.db, 'departamentos', id);
+                await this.firestore.updateDoc(docRef, departamentos[index]);
+                console.log('🔥 Departamento actualizado en Firebase');
+            } catch (error) {
+                console.error('❌ Error al actualizar en Firebase:', error);
+            }
+        }
+        
         return departamentos[index];
     },
 
@@ -91,7 +273,7 @@ const Model = {
      * @param {string} id - ID del departamento
      * @returns {boolean} true si se eliminó correctamente
      */
-    eliminarDepartamento(id) {
+    async eliminarDepartamento(id) {
         // Verificar si tiene reservas asociadas
         const reservas = this.obtenerReservas();
         const tieneReservas = reservas.some(res => res.departamentoId === id);
@@ -108,6 +290,18 @@ const Model = {
         }
         
         localStorage.setItem('departamentos', JSON.stringify(nuevosDepartamentos));
+
+        // Sincronizar con Firebase si está habilitado
+        if (this.useFirebase) {
+            try {
+                const docRef = this.firestore.doc(this.db, 'departamentos', id);
+                await this.firestore.deleteDoc(docRef);
+                console.log('🔥 Departamento eliminado de Firebase');
+            } catch (error) {
+                console.error('❌ Error al eliminar de Firebase:', error);
+            }
+        }
+        
         return true;
     },
 
@@ -138,7 +332,7 @@ const Model = {
      * @param {Object} reserva - Datos de la reserva
      * @returns {Object} Reserva creada
      */
-    crearReserva(reserva) {
+    async crearReserva(reserva) {
         // Validar que el departamento existe
         const departamento = this.obtenerDepartamentoPorId(reserva.departamentoId);
         if (!departamento) {
@@ -170,6 +364,20 @@ const Model = {
         
         reservas.push(nuevaReserva);
         localStorage.setItem('reservas', JSON.stringify(reservas));
+
+        // Sincronizar con Firebase si está habilitado
+        if (this.useFirebase) {
+            try {
+                const docRef = await this.firestore.addDoc(
+                    this.firestore.collection(this.db, 'reservas'),
+                    nuevaReserva
+                );
+                console.log('🔥 Reserva guardada en Firebase:', docRef.id);
+            } catch (error) {
+                console.error('❌ Error al guardar reserva en Firebase:', error);
+            }
+        }
+        
         return nuevaReserva;
     },
 
@@ -179,7 +387,7 @@ const Model = {
      * @param {Object} datosActualizados - Nuevos datos
      * @returns {Object|null} Reserva actualizada o null
      */
-    actualizarReserva(id, datosActualizados) {
+    async actualizarReserva(id, datosActualizados) {
         const reservas = this.obtenerReservas();
         const index = reservas.findIndex(res => res.id === id);
         
@@ -213,6 +421,18 @@ const Model = {
         };
         
         localStorage.setItem('reservas', JSON.stringify(reservas));
+
+        // Sincronizar con Firebase si está habilitado
+        if (this.useFirebase) {
+            try {
+                const docRef = this.firestore.doc(this.db, 'reservas', id);
+                await this.firestore.updateDoc(docRef, reservas[index]);
+                console.log('🔥 Reserva actualizada en Firebase');
+            } catch (error) {
+                console.error('❌ Error al actualizar reserva en Firebase:', error);
+            }
+        }
+        
         return reservas[index];
     },
 
@@ -221,7 +441,7 @@ const Model = {
      * @param {string} id - ID de la reserva
      * @returns {boolean} true si se eliminó correctamente
      */
-    eliminarReserva(id) {
+    async eliminarReserva(id) {
         const reservas = this.obtenerReservas();
         const nuevasReservas = reservas.filter(res => res.id !== id);
         
@@ -230,6 +450,18 @@ const Model = {
         }
         
         localStorage.setItem('reservas', JSON.stringify(nuevasReservas));
+
+        // Sincronizar con Firebase si está habilitado
+        if (this.useFirebase) {
+            try {
+                const docRef = this.firestore.doc(this.db, 'reservas', id);
+                await this.firestore.deleteDoc(docRef);
+                console.log('🔥 Reserva eliminada de Firebase');
+            } catch (error) {
+                console.error('❌ Error al eliminar reserva de Firebase:', error);
+            }
+        }
+        
         return true;
     },
 

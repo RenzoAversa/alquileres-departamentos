@@ -97,7 +97,7 @@ const Controller = {
     /**
      * Guardar o actualizar departamento
      */
-    guardarDepartamento() {
+    async guardarDepartamento() {
         const id = View.elements.deptId.value;
         const datos = {
             nombre: View.elements.deptNombre.value,
@@ -119,11 +119,11 @@ const Controller = {
         try {
             if (id) {
                 // Actualizar existente
-                Model.actualizarDepartamento(id, datos);
+                await Model.actualizarDepartamento(id, datos);
                 View.mostrarAlerta('✅ Departamento actualizado exitosamente', 'success');
             } else {
                 // Crear nuevo
-                Model.crearDepartamento(datos);
+                await Model.crearDepartamento(datos);
                 View.mostrarAlerta('✅ Departamento creado exitosamente', 'success');
             }
 
@@ -158,7 +158,7 @@ const Controller = {
      * Eliminar un departamento
      * @param {string} id - ID del departamento
      */
-    eliminarDepartamento(id) {
+    async eliminarDepartamento(id) {
         const departamento = Model.obtenerDepartamentoPorId(id);
         if (!departamento) {
             View.mostrarAlerta('Departamento no encontrado', 'error');
@@ -173,7 +173,7 @@ const Controller = {
         if (!confirmar) return;
 
         try {
-            Model.eliminarDepartamento(id);
+            await Model.eliminarDepartamento(id);
             View.mostrarAlerta('✅ Departamento eliminado exitosamente', 'success');
             this.actualizarVistaDepartamentos();
             
@@ -238,7 +238,7 @@ const Controller = {
     /**
      * Guardar o actualizar reserva
      */
-    guardarReserva() {
+    async guardarReserva() {
         const id = View.elements.reservaId.value;
         const datos = {
             departamentoId: View.elements.reservaDepartamento.value,
@@ -266,11 +266,11 @@ const Controller = {
         try {
             if (id) {
                 // Actualizar existente
-                Model.actualizarReserva(id, datos);
+                await Model.actualizarReserva(id, datos);
                 View.mostrarAlerta('✅ Reserva actualizada exitosamente', 'success');
             } else {
                 // Crear nueva
-                Model.crearReserva(datos);
+                await Model.crearReserva(datos);
                 View.mostrarAlerta('✅ Reserva creada exitosamente', 'success');
             }
 
@@ -298,7 +298,7 @@ const Controller = {
      * Eliminar una reserva
      * @param {string} id - ID de la reserva
      */
-    eliminarReserva(id) {
+    async eliminarReserva(id) {
         const reserva = Model.obtenerReservaPorId(id);
         if (!reserva) {
             View.mostrarAlerta('Reserva no encontrada', 'error');
@@ -318,7 +318,7 @@ const Controller = {
         if (!confirmar) return;
 
         try {
-            Model.eliminarReserva(id);
+            await Model.eliminarReserva(id);
             View.mostrarAlerta('✅ Reserva eliminada exitosamente', 'success');
             this.actualizarVistaReservas();
             
