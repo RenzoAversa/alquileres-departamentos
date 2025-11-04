@@ -8,6 +8,7 @@ const Model = {
     useFirebase: false,
     db: null,
     firebaseApp: null,
+    sincronizandoFirebase: false, // Bandera para evitar loops
 
     // ========================================
     // INICIALIZACIÓN
@@ -115,6 +116,9 @@ const Model = {
         this.firestore.onSnapshot(
             this.firestore.collection(this.db, 'departamentos'),
             (snapshot) => {
+                // Evitar actualizar durante sincronización inicial
+                if (this.sincronizandoFirebase) return;
+
                 snapshot.docChanges().forEach((change) => {
                     if (change.type === "added" || change.type === "modified") {
                         const departamentos = this.obtenerDepartamentos();
@@ -146,6 +150,9 @@ const Model = {
         this.firestore.onSnapshot(
             this.firestore.collection(this.db, 'reservas'),
             (snapshot) => {
+                // Evitar actualizar durante sincronización inicial
+                if (this.sincronizandoFirebase) return;
+
                 snapshot.docChanges().forEach((change) => {
                     if (change.type === "added" || change.type === "modified") {
                         const reservas = this.obtenerReservas();
@@ -205,29 +212,36 @@ const Model = {
      */
     async crearDepartamento(departamento) {
         const nuevoDepartamento = {
-            id: this.generarId(),
             nombre: departamento.nombre.trim(),
             capacidad: parseInt(departamento.capacidad),
             descripcion: departamento.descripcion?.trim() || '',
             fechaCreacion: new Date().toISOString()
         };
         
-        const departamentos = this.obtenerDepartamentos();
-        departamentos.push(nuevoDepartamento);
-        localStorage.setItem('departamentos', JSON.stringify(departamentos));
-
-        // Sincronizar con Firebase si está habilitado
+        // Sincronizar con Firebase primero si está habilitado
         if (this.useFirebase) {
             try {
                 const docRef = await this.firestore.addDoc(
                     this.firestore.collection(this.db, 'departamentos'),
                     nuevoDepartamento
                 );
+                // Usar el ID de Firebase como ID único
+                nuevoDepartamento.id = docRef.id;
                 console.log('🔥 Departamento guardado en Firebase:', docRef.id);
             } catch (error) {
                 console.error('❌ Error al guardar en Firebase:', error);
+                // Si falla Firebase, usar ID local
+                nuevoDepartamento.id = this.generarId();
             }
+        } else {
+            // Si no hay Firebase, usar ID local
+            nuevoDepartamento.id = this.generarId();
         }
+
+        // Guardar en localStorage
+        const departamentos = this.obtenerDepartamentos();
+        departamentos.push(nuevoDepartamento);
+        localStorage.setItem('departamentos', JSON.stringify(departamentos));
         
         return nuevoDepartamento;
     },
@@ -352,9 +366,7 @@ const Model = {
             throw new Error('El departamento ya está reservado en esas fechas');
         }
 
-        const reservas = this.obtenerReservas();
         const nuevaReserva = {
-            id: this.generarId(),
             departamentoId: reserva.departamentoId,
             huesped: reserva.huesped.trim(),
             fechaEntrada: reserva.fechaEntrada,
@@ -362,21 +374,30 @@ const Model = {
             fechaCreacion: new Date().toISOString()
         };
         
-        reservas.push(nuevaReserva);
-        localStorage.setItem('reservas', JSON.stringify(reservas));
-
-        // Sincronizar con Firebase si está habilitado
+        // Sincronizar con Firebase primero si está habilitado
         if (this.useFirebase) {
             try {
                 const docRef = await this.firestore.addDoc(
                     this.firestore.collection(this.db, 'reservas'),
                     nuevaReserva
                 );
+                // Usar el ID de Firebase como ID único
+                nuevaReserva.id = docRef.id;
                 console.log('🔥 Reserva guardada en Firebase:', docRef.id);
             } catch (error) {
                 console.error('❌ Error al guardar reserva en Firebase:', error);
+                // Si falla Firebase, usar ID local
+                nuevaReserva.id = this.generarId();
             }
+        } else {
+            // Si no hay Firebase, usar ID local
+            nuevaReserva.id = this.generarId();
         }
+
+        // Guardar en localStorage
+        const reservas = this.obtenerReservas();
+        reservas.push(nuevaReserva);
+        localStorage.setItem('reservas', JSON.stringify(reservas));
         
         return nuevaReserva;
     },
