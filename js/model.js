@@ -77,6 +77,9 @@ const Model = {
     async sincronizarDesdeFirebase() {
         if (!this.useFirebase) return;
 
+        // Activar bandera para evitar que los listeners agreguen duplicados
+        this.sincronizandoFirebase = true;
+
         try {
             // Obtener departamentos
             const deptsSnapshot = await this.firestore.getDocs(
@@ -100,9 +103,19 @@ const Model = {
             localStorage.setItem('departamentos', JSON.stringify(departamentos));
             localStorage.setItem('reservas', JSON.stringify(reservas));
 
-            console.log('🔄 Datos sincronizados desde Firebase');
+            console.log('🔄 Datos sincronizados desde Firebase:', {
+                departamentos: departamentos.length,
+                reservas: reservas.length
+            });
         } catch (error) {
             console.error('❌ Error al sincronizar desde Firebase:', error);
+        } finally {
+            // Desactivar la bandera después de un pequeño delay
+            // para asegurar que los listeners iniciales no se disparen
+            setTimeout(() => {
+                this.sincronizandoFirebase = false;
+                console.log('✅ Sincronización completada, listeners activos');
+            }, 1000);
         }
     },
 

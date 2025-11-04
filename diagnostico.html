@@ -1,0 +1,460 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🔍 Diagnóstico de Datos</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            padding: 40px;
+        }
+        
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 30px;
+            font-size: 2.5rem;
+        }
+        
+        .section {
+            margin-bottom: 40px;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 10px;
+            border-left: 5px solid #667eea;
+        }
+        
+        .section h2 {
+            color: #667eea;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        
+        .stat-card {
+            background: white;
+            padding: 15px;
+            border-radius: 10px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        
+        .stat-card .label {
+            font-size: 0.9rem;
+            color: #666;
+            margin-bottom: 5px;
+        }
+        
+        .stat-card .value {
+            font-size: 1.8rem;
+            font-weight: bold;
+            color: #667eea;
+        }
+        
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 15px;
+            background: white;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        
+        .data-table th {
+            background: #667eea;
+            color: white;
+            padding: 12px;
+            text-align: left;
+            font-weight: 600;
+        }
+        
+        .data-table td {
+            padding: 12px;
+            border-bottom: 1px solid #eee;
+        }
+        
+        .data-table tr:hover {
+            background: #f8f9fa;
+        }
+        
+        .duplicate {
+            background: #fff3cd !important;
+        }
+        
+        .duplicate td {
+            border-left: 4px solid #ffc107;
+        }
+        
+        .btn {
+            padding: 12px 30px;
+            border: none;
+            border-radius: 25px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin: 10px 5px;
+        }
+        
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background: #5568d3;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+        
+        .btn-danger {
+            background: #dc3545;
+            color: white;
+        }
+        
+        .btn-danger:hover {
+            background: #c82333;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(220, 53, 69, 0.4);
+        }
+        
+        .btn-success {
+            background: #28a745;
+            color: white;
+        }
+        
+        .btn-success:hover {
+            background: #218838;
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 40px;
+            font-size: 1.2rem;
+            color: #667eea;
+        }
+        
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 20px auto;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .alert {
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+        }
+        
+        .alert-warning {
+            background: #fff3cd;
+            border-left: 5px solid #ffc107;
+            color: #856404;
+        }
+        
+        .alert-info {
+            background: #d1ecf1;
+            border-left: 5px solid #17a2b8;
+            color: #0c5460;
+        }
+        
+        .alert-success {
+            background: #d4edda;
+            border-left: 5px solid #28a745;
+            color: #155724;
+        }
+        
+        .id-badge {
+            font-family: 'Courier New', monospace;
+            background: #e9ecef;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 0.85rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 Diagnóstico de Datos - Alquileres</h1>
+        
+        <div id="loading" class="loading">
+            <div class="spinner"></div>
+            <p>Analizando datos...</p>
+        </div>
+        
+        <div id="content" style="display: none;">
+            <!-- Estadísticas generales -->
+            <div class="section">
+                <h2>📊 Estadísticas Generales</h2>
+                <div class="stats">
+                    <div class="stat-card">
+                        <div class="label">Firebase Departamentos</div>
+                        <div class="value" id="firebase-depts">0</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="label">LocalStorage Departamentos</div>
+                        <div class="value" id="local-depts">0</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="label">Firebase Reservas</div>
+                        <div class="value" id="firebase-reservas">0</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="label">LocalStorage Reservas</div>
+                        <div class="value" id="local-reservas">0</div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Duplicados detectados -->
+            <div id="duplicates-section" class="section" style="display: none;">
+                <h2>⚠️ Duplicados Detectados</h2>
+                <div id="duplicates-alert"></div>
+            </div>
+            
+            <!-- Departamentos en Firebase -->
+            <div class="section">
+                <h2>🏢 Departamentos en Firebase</h2>
+                <table class="data-table" id="firebase-depts-table">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Nombre</th>
+                            <th>Capacidad</th>
+                            <th>Fecha Creación</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+            
+            <!-- Departamentos en LocalStorage -->
+            <div class="section">
+                <h2>💾 Departamentos en LocalStorage</h2>
+                <table class="data-table" id="local-depts-table">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Nombre</th>
+                            <th>Capacidad</th>
+                            <th>Fecha Creación</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+            
+            <!-- Acciones -->
+            <div class="section">
+                <h2>🛠️ Acciones</h2>
+                <button class="btn btn-primary" onclick="location.reload()">🔄 Recargar Diagnóstico</button>
+                <button class="btn btn-danger" id="btn-eliminar-duplicados" style="display: none;">🗑️ Eliminar Duplicados de Firebase</button>
+                <button class="btn btn-success" onclick="window.location.href='index.html'">← Volver a la App</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Firebase Config -->
+    <script src="js/firebase-config.js"></script>
+    
+    <script type="module">
+        // Importar Firebase
+        const { initializeApp } = await import('https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js');
+        const { getFirestore, collection, getDocs, deleteDoc, doc } = 
+            await import('https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js');
+
+        // Inicializar Firebase
+        const app = initializeApp(window.firebaseConfig);
+        const db = getFirestore(app);
+
+        let firebaseDepts = [];
+        let localDepts = [];
+        let duplicates = [];
+
+        async function analizarDatos() {
+            try {
+                // Obtener datos de Firebase
+                const deptsSnapshot = await getDocs(collection(db, 'departamentos'));
+                firebaseDepts = deptsSnapshot.docs.map(doc => ({
+                    id: doc.id,
+                    ...doc.data()
+                }));
+
+                // Obtener datos de LocalStorage
+                localDepts = JSON.parse(localStorage.getItem('departamentos')) || [];
+
+                // Actualizar estadísticas
+                document.getElementById('firebase-depts').textContent = firebaseDepts.length;
+                document.getElementById('local-depts').textContent = localDepts.length;
+
+                // Buscar duplicados (mismo nombre)
+                const nombreCounts = {};
+                firebaseDepts.forEach(dept => {
+                    const nombre = dept.nombre.toLowerCase().trim();
+                    if (!nombreCounts[nombre]) {
+                        nombreCounts[nombre] = [];
+                    }
+                    nombreCounts[nombre].push(dept);
+                });
+
+                // Detectar duplicados
+                duplicates = [];
+                Object.entries(nombreCounts).forEach(([nombre, depts]) => {
+                    if (depts.length > 1) {
+                        duplicates.push({
+                            nombre: nombre,
+                            cantidad: depts.length,
+                            items: depts
+                        });
+                    }
+                });
+
+                // Mostrar alerta de duplicados
+                if (duplicates.length > 0) {
+                    const section = document.getElementById('duplicates-section');
+                    const alert = document.getElementById('duplicates-alert');
+                    section.style.display = 'block';
+                    
+                    let html = '<div class="alert alert-warning">';
+                    html += `<strong>Se encontraron ${duplicates.length} departamento(s) duplicado(s):</strong><ul>`;
+                    duplicates.forEach(dup => {
+                        html += `<li><strong>${dup.items[0].nombre}</strong> aparece ${dup.cantidad} veces</li>`;
+                    });
+                    html += '</ul></div>';
+                    alert.innerHTML = html;
+                    
+                    document.getElementById('btn-eliminar-duplicados').style.display = 'inline-block';
+                }
+
+                // Renderizar tablas
+                renderizarTablaFirebase();
+                renderizarTablaLocal();
+
+                // Ocultar loading, mostrar contenido
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('content').style.display = 'block';
+
+            } catch (error) {
+                console.error('Error al analizar datos:', error);
+                document.getElementById('loading').innerHTML = `
+                    <div class="alert alert-danger">
+                        <strong>Error:</strong> ${error.message}
+                    </div>
+                `;
+            }
+        }
+
+        function renderizarTablaFirebase() {
+            const tbody = document.querySelector('#firebase-depts-table tbody');
+            tbody.innerHTML = '';
+
+            // Determinar qué filas son duplicadas
+            const duplicateIds = new Set();
+            duplicates.forEach(dup => {
+                dup.items.forEach(item => duplicateIds.add(item.id));
+            });
+
+            firebaseDepts.forEach(dept => {
+                const tr = document.createElement('tr');
+                if (duplicateIds.has(dept.id)) {
+                    tr.classList.add('duplicate');
+                }
+                
+                tr.innerHTML = `
+                    <td><span class="id-badge">${dept.id}</span></td>
+                    <td><strong>${dept.nombre}</strong></td>
+                    <td>${dept.capacidad} personas</td>
+                    <td>${dept.fechaCreacion ? new Date(dept.fechaCreacion).toLocaleString('es-AR') : 'N/A'}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function renderizarTablaLocal() {
+            const tbody = document.querySelector('#local-depts-table tbody');
+            tbody.innerHTML = '';
+
+            localDepts.forEach(dept => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td><span class="id-badge">${dept.id}</span></td>
+                    <td><strong>${dept.nombre}</strong></td>
+                    <td>${dept.capacidad} personas</td>
+                    <td>${dept.fechaCreacion ? new Date(dept.fechaCreacion).toLocaleString('es-AR') : 'N/A'}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        // Función para eliminar duplicados
+        document.getElementById('btn-eliminar-duplicados').addEventListener('click', async () => {
+            if (!confirm('¿Estás seguro de que quieres eliminar los duplicados? Se conservará solo el más antiguo de cada uno.')) {
+                return;
+            }
+
+            try {
+                for (const dup of duplicates) {
+                    // Ordenar por fecha de creación y mantener el más antiguo
+                    const sorted = dup.items.sort((a, b) => {
+                        const dateA = new Date(a.fechaCreacion || 0);
+                        const dateB = new Date(b.fechaCreacion || 0);
+                        return dateA - dateB;
+                    });
+
+                    // Eliminar todos excepto el primero (más antiguo)
+                    for (let i = 1; i < sorted.length; i++) {
+                        const docRef = doc(db, 'departamentos', sorted[i].id);
+                        await deleteDoc(docRef);
+                        console.log(`🗑️ Eliminado duplicado: ${sorted[i].nombre} (ID: ${sorted[i].id})`);
+                    }
+                }
+
+                alert('✅ Duplicados eliminados correctamente. Recargando...');
+                location.reload();
+
+            } catch (error) {
+                alert('❌ Error al eliminar duplicados: ' + error.message);
+                console.error(error);
+            }
+        });
+
+        // Iniciar análisis
+        analizarDatos();
+    </script>
+</body>
+</html>
