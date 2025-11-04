@@ -18,6 +18,11 @@ const Model = {
      * Inicializar el modelo (LocalStorage y Firebase)
      */
     async init() {
+        console.log('🚀 Iniciando Model...');
+        
+        // LIMPIAR DUPLICADOS EXISTENTES INMEDIATAMENTE
+        this.limpiarDuplicadosExistentes();
+        
         // Inicializar LocalStorage
         if (!localStorage.getItem('departamentos')) {
             localStorage.setItem('departamentos', JSON.stringify([]));
@@ -31,6 +36,30 @@ const Model = {
             await this.initFirebase();
         } catch (error) {
             console.warn('⚠️ Firebase no configurado, usando solo LocalStorage:', error.message);
+        }
+    },
+
+    /**
+     * Limpiar duplicados existentes del localStorage
+     */
+    limpiarDuplicadosExistentes() {
+        try {
+            const departamentos = JSON.parse(localStorage.getItem('departamentos')) || [];
+            const reservas = JSON.parse(localStorage.getItem('reservas')) || [];
+            
+            const deptsLimpios = this.eliminarDuplicadosPorId(departamentos);
+            const reservasLimpias = this.eliminarDuplicadosPorId(reservas);
+            
+            const deptsEliminados = departamentos.length - deptsLimpios.length;
+            const reservasEliminadas = reservas.length - reservasLimpias.length;
+            
+            if (deptsEliminados > 0 || reservasEliminadas > 0) {
+                localStorage.setItem('departamentos', JSON.stringify(deptsLimpios));
+                localStorage.setItem('reservas', JSON.stringify(reservasLimpias));
+                console.warn(`🧹 AUTO-LIMPIEZA: Eliminados ${deptsEliminados} departamento(s) y ${reservasEliminadas} reserva(s) duplicada(s)`);
+            }
+        } catch (error) {
+            console.error('Error al limpiar duplicados:', error);
         }
     },
 
