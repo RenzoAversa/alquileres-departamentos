@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+    <meta name="theme-color" content="#4A90E2">
+    <title>Registro de Alquileres v7</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <header>
+        <div class="container">
+            <h1>🏢 Registro de Alquileres</h1>
+            <p class="subtitle">Gestión de departamentos y reservas</p>
+            <button id="btn-limpiar-duplicados" class="btn-fix-duplicados" style="display: none;">
+                🧹 Limpiar Duplicados
+            </button>
+        </div>
+    </header>
+
+    <main class="container">
+        <div class="tabs">
+            <button class="tab-btn active" data-tab="departamentos">Departamentos</button>
+            <button class="tab-btn" data-tab="reservas">Reservas</button>
+            <button class="tab-btn" data-tab="buscador">Buscar Disponibilidad</button>
+            <button class="tab-btn" data-tab="calendario">📅 Calendario</button>
+        </div>
+
+        <section id="tab-departamentos" class="tab-content active">
+            <h2>Gestión de Departamentos</h2>
+            
+            <div class="card">
+                <h3>Agregar Departamento</h3>
+                <form id="form-departamento">
+                    <div class="form-group">
+                        <label for="dept-nombre">Nombre del Departamento *</label>
+                        <input type="text" id="dept-nombre" required placeholder="Ej: Depto 101">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="dept-capacidad">Capacidad (personas) *</label>
+                        <input type="number" id="dept-capacidad" required min="1" placeholder="Ej: 4">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="dept-descripcion">Descripción (opcional)</label>
+                        <textarea id="dept-descripcion" rows="3" placeholder="Ej: 2 dormitorios, vista al mar"></textarea>
+                    </div>
+                    
+                    <input type="hidden" id="dept-id">
+                    <button type="submit" class="btn btn-primary" id="btn-guardar-dept">Guardar Departamento</button>
+                    <button type="button" class="btn btn-secondary" id="btn-cancelar-dept" style="display:none;">Cancelar</button>
+                </form>
+            </div>
+
+            <div class="card">
+                <h3>Departamentos Registrados</h3>
+                <div id="lista-departamentos"></div>
+            </div>
+        </section>
+
+        <section id="tab-reservas" class="tab-content">
+            <h2>Gestión de Reservas</h2>
+            
+            <div class="card">
+                <h3>Registrar Reserva</h3>
+                <form id="form-reserva">
+                    <div class="form-group">
+                        <label for="reserva-departamento">Departamento *</label>
+                        <select id="reserva-departamento" required>
+                            <option value="">Seleccione un departamento</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="reserva-huesped">Nombre del Huésped *</label>
+                        <input type="text" id="reserva-huesped" required placeholder="Ej: Juan Pérez">
+                    </div>
+                    
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="reserva-entrada">Fecha de Entrada *</label>
+                            <input type="date" id="reserva-entrada" required>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="reserva-salida">Fecha de Salida *</label>
+                            <input type="date" id="reserva-salida" required>
+                        </div>
+                    </div>
+                    
+                    <input type="hidden" id="reserva-id">
+                    <button type="submit" class="btn btn-primary" id="btn-guardar-reserva">Guardar Reserva</button>
+                    <button type="button" class="btn btn-secondary" id="btn-cancelar-reserva" style="display:none;">Cancelar</button>
+                </form>
+            </div>
+
+            <div class="card">
+                <h3>Reservas Registradas</h3>
+                <div id="lista-reservas"></div>
+            </div>
+        </section>
+
+        <section id="tab-buscador" class="tab-content">
+            <h2>Buscar Disponibilidad</h2>
+            
+            <div class="card">
+                <h3>Filtrar Departamentos Disponibles</h3>
+                <form id="form-buscar">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="buscar-entrada">Fecha de Entrada</label>
+                            <input type="date" id="buscar-entrada">
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="buscar-salida">Fecha de Salida</label>
+                            <input type="date" id="buscar-salida">
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="buscar-capacidad">Capacidad Mínima</label>
+                        <input type="number" id="buscar-capacidad" min="1" placeholder="Número de personas">
+                    </div>
+                    
+                    <button type="submit" class="btn btn-primary">🔍 Buscar</button>
+                    <button type="button" class="btn btn-secondary" id="btn-limpiar-busqueda">Limpiar</button>
+                </form>
+            </div>
+
+            <div class="card">
+                <h3>Resultados</h3>
+                <div id="resultados-busqueda"></div>
+            </div>
+        </section>
+
+        <section id="tab-calendario" class="tab-content">
+            <h2>📅 Calendario de Reservas</h2>
+            
+            <div class="card">
+                <div class="calendario-controles">
+                    <div class="form-group" style="max-width: 300px;">
+                        <label for="calendario-departamento">Seleccionar Departamento</label>
+                        <select id="calendario-departamento">
+                            <option value="">Todos los departamentos</option>
+                        </select>
+                    </div>
+                    
+                    <div id="info-calendario" class="info-calendario"></div>
+                </div>
+                
+                <div class="calendario-navegacion">
+                    <button class="btn btn-secondary" id="btn-mes-anterior">← Mes Anterior</button>
+                    <h3 id="mes-actual"></h3>
+                    <button class="btn btn-secondary" id="btn-mes-siguiente">Mes Siguiente →</button>
+                </div>
+                
+                <div id="calendario-grid" class="calendario-grid"></div>
+                
+                <div class="calendario-leyenda">
+                    <div class="leyenda-item">
+                        <div class="dia dia-disponible"></div>
+                        <span>Disponible</span>
+                    </div>
+                    <div class="leyenda-item">
+                        <div class="dia dia-reservado"></div>
+                        <span>Reservado</span>
+                    </div>
+                    <div class="leyenda-item">
+                        <div class="dia dia-hoy"></div>
+                        <span>Hoy</span>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <footer>
+        <div class="container">
+            <p>&copy; 2025 Sistema de Alquileres - v7 FIXED</p>
+        </div>
+    </footer>
+
+    <!-- Scripts con timestamp para evitar caché -->
+    <script>
+        const timestamp = Date.now();
+        const scripts = [
+            'js/firebase-config.js',
+            'js/model.js',
+            'js/view.js',
+            'js/controller.js'
+        ];
+        
+        scripts.forEach(src => {
+            const script = document.createElement('script');
+            script.src = `${src}?v=7&t=${timestamp}`;
+            document.body.appendChild(script);
+        });
+    </script>
+</body>
+</html>
