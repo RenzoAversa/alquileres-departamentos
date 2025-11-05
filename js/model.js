@@ -822,7 +822,7 @@ const Model = {
     }
 };
 
-// Inicializar el modelo al cargar
-Model.init();
+// NO inicializar aquí - se inicializa desde controller.js
+// Model.init();
 
 console.log('✅ Model cargado correctamente');
