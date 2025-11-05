@@ -7,8 +7,8 @@
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
     <meta name="theme-color" content="#4A90E2">
-    <title>Registro de Alquileres v8 - SIN DUPLICADOS</title>
-    <link rel="stylesheet" href="css/style.css?v=8&t=<?= time() ?>">
+    <title>🚀 ALQUILERES V9-FINAL - DUPLICADOS ELIMINADOS ✅</title>
+    <link rel="stylesheet" href="css/style.css?v=9&build=20251105">
 </head>
 <body>
     <header>
@@ -181,13 +181,16 @@
 
     <footer>
         <div class="container">
-            <p>&copy; 2025 Sistema de Alquileres - v8 SIN DUPLICADOS ✅</p>
+            <p>🚀 &copy; 2025 Sistema de Alquileres - V9-FINAL ✅ SIN DUPLICADOS - Build: 20251105</p>
         </div>
     </footer>
 
     <!-- Scripts con timestamp para evitar caché -->
     <script>
+        const buildNumber = '20251105';
         const timestamp = Date.now();
+        console.log('🚀 CARGANDO V9-FINAL - Build:', buildNumber);
+        
         const scripts = [
             'js/firebase-config.js',
             'js/model.js',
@@ -197,7 +200,7 @@
         
         scripts.forEach(src => {
             const script = document.createElement('script');
-            script.src = `${src}?v=8&t=${timestamp}`;
+            script.src = `${src}?v=9&build=${buildNumber}&t=${timestamp}`;
             document.body.appendChild(script);
         });
     </script>
