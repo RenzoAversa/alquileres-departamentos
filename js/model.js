@@ -110,6 +110,12 @@ const Model = {
         this.sincronizandoFirebase = true;
 
         try {
+            // LIMPIAR LOCALSTORAGE PRIMERO
+            localStorage.setItem('departamentos', JSON.stringify([]));
+            localStorage.setItem('reservas', JSON.stringify([]));
+            
+            console.log('🧹 LocalStorage limpiado, sincronizando desde Firebase...');
+            
             // Obtener departamentos
             const deptsSnapshot = await this.firestore.getDocs(
                 this.firestore.collection(this.db, 'departamentos')
@@ -144,19 +150,19 @@ const Model = {
             localStorage.setItem('departamentos', JSON.stringify(departamentos));
             localStorage.setItem('reservas', JSON.stringify(reservas));
 
-            console.log('🔄 Datos sincronizados desde Firebase:', {
+            console.log('🔄 Datos sincronizados desde Firebase (ÚNICOS):', {
                 departamentos: departamentos.length,
                 reservas: reservas.length
             });
         } catch (error) {
             console.error('❌ Error al sincronizar desde Firebase:', error);
         } finally {
-            // Desactivar la bandera después de un pequeño delay
+            // Desactivar la bandera después de un delay más largo
             // para asegurar que los listeners iniciales no se disparen
             setTimeout(() => {
                 this.sincronizandoFirebase = false;
                 console.log('✅ Sincronización completada, listeners activos');
-            }, 1000);
+            }, 2000); // Aumentado a 2 segundos
         }
     },
 
@@ -171,7 +177,12 @@ const Model = {
             this.firestore.collection(this.db, 'departamentos'),
             (snapshot) => {
                 // Evitar actualizar durante sincronización inicial
-                if (this.sincronizandoFirebase) return;
+                if (this.sincronizandoFirebase) {
+                    console.log('⏸️ Listener bloqueado durante sincronización inicial');
+                    return;
+                }
+
+                console.log(`📡 Listener departamentos: ${snapshot.docChanges().length} cambio(s)`);
 
                 // OBTENER DATOS ACTUALES Y CONVERTIR A MAP
                 const departamentos = this.obtenerDepartamentos();
@@ -184,15 +195,18 @@ const Model = {
                             id: change.doc.id,
                             ...change.doc.data()
                         });
+                        console.log(`  ${change.type === "added" ? "➕" : "✏️"} ${change.doc.id.substr(0,8)}`);
                     } else if (change.type === "removed") {
                         // ELIMINAR DEL MAP
                         deptsMap.delete(change.doc.id);
+                        console.log(`  🗑️ ${change.doc.id.substr(0,8)}`);
                     }
                 });
                 
                 // CONVERTIR MAP A ARRAY (sin duplicados)
                 const deptsUnicos = Array.from(deptsMap.values());
                 localStorage.setItem('departamentos', JSON.stringify(deptsUnicos));
+                console.log(`💾 Guardados ${deptsUnicos.length} departamentos únicos`);
                 
                 // Notificar a la vista si existe
                 if (window.Controller && window.Controller.actualizarVistaDepartamentos) {

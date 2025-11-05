@@ -666,7 +666,7 @@ const Controller = {
 
 // Esperar a que el DOM esté completamente cargado
 document.addEventListener('DOMContentLoaded', async () => {
-    console.log('🔥 INICIANDO APP - VERSIÓN v5 CON MAP (GARANTIZA UNICIDAD)');
+    console.log('🔥 INICIANDO APP - VERSIÓN v6 (DEBUG MODE + LIMPIEZA INICIAL)');
     
     // Inicializar Model primero (incluye auto-limpieza)
     await Model.init();
@@ -674,7 +674,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Luego inicializar Controller
     Controller.init();
     
-    console.log('✅ APP LISTA - Sistema anti-duplicados con Map activado');
+    console.log('✅ APP LISTA - Revisa logs para ver flujo de sincronización');
 });
 
 console.log('✅ Controller cargado correctamente');
