@@ -114,21 +114,33 @@ const Model = {
             const deptsSnapshot = await this.firestore.getDocs(
                 this.firestore.collection(this.db, 'departamentos')
             );
-            const departamentos = deptsSnapshot.docs.map(doc => ({
-                id: doc.id,
-                ...doc.data()
-            }));
+            
+            // USAR MAP PARA GARANTIZAR IDs ÚNICOS
+            const deptsMap = new Map();
+            deptsSnapshot.docs.forEach(doc => {
+                deptsMap.set(doc.id, {
+                    id: doc.id,
+                    ...doc.data()
+                });
+            });
+            const departamentos = Array.from(deptsMap.values());
 
             // Obtener reservas
             const reservasSnapshot = await this.firestore.getDocs(
                 this.firestore.collection(this.db, 'reservas')
             );
-            const reservas = reservasSnapshot.docs.map(doc => ({
-                id: doc.id,
-                ...doc.data()
-            }));
+            
+            // USAR MAP PARA GARANTIZAR IDs ÚNICOS
+            const reservasMap = new Map();
+            reservasSnapshot.docs.forEach(doc => {
+                reservasMap.set(doc.id, {
+                    id: doc.id,
+                    ...doc.data()
+                });
+            });
+            const reservas = Array.from(reservasMap.values());
 
-            // Guardar en LocalStorage
+            // Guardar en LocalStorage (ya sin duplicados)
             localStorage.setItem('departamentos', JSON.stringify(departamentos));
             localStorage.setItem('reservas', JSON.stringify(reservas));
 
@@ -161,32 +173,26 @@ const Model = {
                 // Evitar actualizar durante sincronización inicial
                 if (this.sincronizandoFirebase) return;
 
+                // OBTENER DATOS ACTUALES Y CONVERTIR A MAP
+                const departamentos = this.obtenerDepartamentos();
+                const deptsMap = new Map(departamentos.map(d => [d.id, d]));
+
                 snapshot.docChanges().forEach((change) => {
                     if (change.type === "added" || change.type === "modified") {
-                        const departamentos = this.obtenerDepartamentos();
-                        const index = departamentos.findIndex(d => d.id === change.doc.id);
-                        const newDept = { id: change.doc.id, ...change.doc.data() };
-                        
-                        if (index >= 0) {
-                            // Actualizar existente
-                            departamentos[index] = newDept;
-                        } else {
-                            // Agregar nuevo solo si NO existe
-                            const yaExiste = departamentos.some(d => d.id === change.doc.id);
-                            if (!yaExiste) {
-                                departamentos.push(newDept);
-                            }
-                        }
-                        
-                        // Limpiar duplicados antes de guardar
-                        const sinDuplicados = this.eliminarDuplicadosPorId(departamentos);
-                        localStorage.setItem('departamentos', JSON.stringify(sinDuplicados));
+                        // ACTUALIZAR/AGREGAR EN MAP (garantiza unicidad)
+                        deptsMap.set(change.doc.id, {
+                            id: change.doc.id,
+                            ...change.doc.data()
+                        });
                     } else if (change.type === "removed") {
-                        const departamentos = this.obtenerDepartamentos();
-                        const filtered = departamentos.filter(d => d.id !== change.doc.id);
-                        localStorage.setItem('departamentos', JSON.stringify(filtered));
+                        // ELIMINAR DEL MAP
+                        deptsMap.delete(change.doc.id);
                     }
                 });
+                
+                // CONVERTIR MAP A ARRAY (sin duplicados)
+                const deptsUnicos = Array.from(deptsMap.values());
+                localStorage.setItem('departamentos', JSON.stringify(deptsUnicos));
                 
                 // Notificar a la vista si existe
                 if (window.Controller && window.Controller.actualizarVistaDepartamentos) {
@@ -202,32 +208,26 @@ const Model = {
                 // Evitar actualizar durante sincronización inicial
                 if (this.sincronizandoFirebase) return;
 
+                // OBTENER DATOS ACTUALES Y CONVERTIR A MAP
+                const reservas = this.obtenerReservas();
+                const reservasMap = new Map(reservas.map(r => [r.id, r]));
+
                 snapshot.docChanges().forEach((change) => {
                     if (change.type === "added" || change.type === "modified") {
-                        const reservas = this.obtenerReservas();
-                        const index = reservas.findIndex(r => r.id === change.doc.id);
-                        const newReserva = { id: change.doc.id, ...change.doc.data() };
-                        
-                        if (index >= 0) {
-                            // Actualizar existente
-                            reservas[index] = newReserva;
-                        } else {
-                            // Agregar nuevo solo si NO existe
-                            const yaExiste = reservas.some(r => r.id === change.doc.id);
-                            if (!yaExiste) {
-                                reservas.push(newReserva);
-                            }
-                        }
-                        
-                        // Limpiar duplicados antes de guardar
-                        const sinDuplicados = this.eliminarDuplicadosPorId(reservas);
-                        localStorage.setItem('reservas', JSON.stringify(sinDuplicados));
+                        // ACTUALIZAR/AGREGAR EN MAP (garantiza unicidad)
+                        reservasMap.set(change.doc.id, {
+                            id: change.doc.id,
+                            ...change.doc.data()
+                        });
                     } else if (change.type === "removed") {
-                        const reservas = this.obtenerReservas();
-                        const filtered = reservas.filter(r => r.id !== change.doc.id);
-                        localStorage.setItem('reservas', JSON.stringify(filtered));
+                        // ELIMINAR DEL MAP
+                        reservasMap.delete(change.doc.id);
                     }
                 });
+                
+                // CONVERTIR MAP A ARRAY (sin duplicados)
+                const reservasUnicas = Array.from(reservasMap.values());
+                localStorage.setItem('reservas', JSON.stringify(reservasUnicas));
                 
                 // Notificar a la vista si existe
                 if (window.Controller && window.Controller.actualizarVistaReservas) {
