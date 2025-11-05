@@ -56,6 +56,7 @@ const View = {
      * @param {Array} departamentos - Lista de departamentos
      */
     renderizarDepartamentos(departamentos) {
+        console.log(`🎨 Renderizando ${departamentos.length} departamentos`);
         const container = this.elements.listaDepartamentos;
         
         if (!departamentos || departamentos.length === 0) {
@@ -142,6 +143,7 @@ const View = {
      * @param {Array} departamentos - Lista de departamentos para obtener nombres
      */
     renderizarReservas(reservas, departamentos) {
+        console.log(`🎨 Renderizando ${reservas.length} reservas`);
         const container = this.elements.listaReservas;
         
         if (!reservas || reservas.length === 0) {

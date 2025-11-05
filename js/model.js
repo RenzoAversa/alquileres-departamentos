@@ -208,10 +208,10 @@ const Model = {
                 localStorage.setItem('departamentos', JSON.stringify(deptsUnicos));
                 console.log(`💾 Guardados ${deptsUnicos.length} departamentos únicos`);
                 
-                // Notificar a la vista si existe
-                if (window.Controller && window.Controller.actualizarVistaDepartamentos) {
-                    window.Controller.actualizarVistaDepartamentos();
-                }
+                // COMENTADO: Evitar doble renderizado - el Controller ya maneja las vistas
+                // if (window.Controller && window.Controller.actualizarVistaDepartamentos) {
+                //     window.Controller.actualizarVistaDepartamentos();
+                // }
             }
         );
 
@@ -243,10 +243,10 @@ const Model = {
                 const reservasUnicas = Array.from(reservasMap.values());
                 localStorage.setItem('reservas', JSON.stringify(reservasUnicas));
                 
-                // Notificar a la vista si existe
-                if (window.Controller && window.Controller.actualizarVistaReservas) {
-                    window.Controller.actualizarVistaReservas();
-                }
+                // COMENTADO: Evitar doble renderizado - el Controller ya maneja las vistas
+                // if (window.Controller && window.Controller.actualizarVistaReservas) {
+                //     window.Controller.actualizarVistaReservas();
+                // }
             }
         );
 

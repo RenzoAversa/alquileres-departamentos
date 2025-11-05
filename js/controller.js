@@ -25,7 +25,8 @@ const Controller = {
         // Configurar fechas mínimas
         View.configurarFechasMinimas();
         
-        // Renderizar datos iniciales
+        // Renderizar datos iniciales (solo una vez)
+        console.log('🎯 Renderizado inicial de datos');
         this.actualizarVistaDepartamentos();
         this.actualizarVistaReservas();
         
