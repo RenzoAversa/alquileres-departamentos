@@ -665,8 +665,16 @@ const Controller = {
 // ========================================
 
 // Esperar a que el DOM esté completamente cargado
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
+    console.log('🔥 INICIANDO APP - VERSIÓN AUTO-LIMPIEZA v4');
+    
+    // Inicializar Model primero (incluye auto-limpieza)
+    await Model.init();
+    
+    // Luego inicializar Controller
     Controller.init();
+    
+    console.log('✅ APP LISTA - Duplicados eliminados automáticamente');
 });
 
 console.log('✅ Controller cargado correctamente');
