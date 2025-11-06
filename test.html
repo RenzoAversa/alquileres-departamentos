@@ -1,12 +1,21 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>TEST - GitHub Pages</title>
+    <title>TEST - GitHub Pages + JS</title>
 </head>
 <body>
     <h1>🚀 TEST - Si ves esto, GitHub Pages funciona</h1>
     <p>Hora: <script>document.write(new Date())</script></p>
     <p>Rama: gh-pages</p>
-    <p>Build: 20251106</p>
+    <p>Build: 20251106 - FIXED</p>
+    
+    <h2>Test JavaScript:</h2>
+    <button onclick="alert('✅ JavaScript funciona!')">Probar JS</button>
+    <div id="test-result"></div>
+    
+    <script>
+        console.log('✅ JavaScript cargando correctamente');
+        document.getElementById('test-result').innerHTML = '✅ DOM manipulation funciona';
+    </script>
 </body>
 </html>
