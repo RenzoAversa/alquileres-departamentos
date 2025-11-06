@@ -75,7 +75,7 @@ const Model = {
         try {
             // Importar Firebase desde CDN
             const { initializeApp } = await import('https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js');
-            const { getFirestore, collection, getDocs, addDoc, updateDoc, deleteDoc, doc, onSnapshot } = 
+            const { getFirestore, collection, getDocs, addDoc, updateDoc, deleteDoc, doc, onSnapshot, setDoc } = 
                 await import('https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js');
 
             // Inicializar Firebase
@@ -84,7 +84,7 @@ const Model = {
             this.useFirebase = true;
 
             // Guardar funciones de Firestore
-            this.firestore = { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, onSnapshot };
+            this.firestore = { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, onSnapshot, setDoc };
 
             console.log('✅ Firebase inicializado correctamente');
 
@@ -370,24 +370,55 @@ const Model = {
         
         if (index === -1) return null;
         
-        departamentos[index] = {
-            ...departamentos[index],
+        // Preparar los datos actualizados
+        const datosFirebase = {
             nombre: datosActualizados.nombre.trim(),
             capacidad: parseInt(datosActualizados.capacidad),
             descripcion: datosActualizados.descripcion?.trim() || '',
             fechaModificacion: new Date().toISOString()
         };
         
+        // Actualizar en localStorage
+        departamentos[index] = {
+            ...departamentos[index],
+            ...datosFirebase
+        };
+        
         localStorage.setItem('departamentos', JSON.stringify(departamentos));
 
         // Sincronizar con Firebase si está habilitado
         if (this.useFirebase) {
+            const docRef = this.firestore.doc(this.db, 'departamentos', id);
+            
             try {
-                const docRef = this.firestore.doc(this.db, 'departamentos', id);
-                await this.firestore.updateDoc(docRef, departamentos[index]);
-                console.log('🔥 Departamento actualizado en Firebase');
+                console.log('🔄 Actualizando departamento en Firebase...', { id, datosFirebase });
+                await this.firestore.updateDoc(docRef, datosFirebase);
+                console.log('✅ Departamento actualizado exitosamente en Firebase');
             } catch (error) {
                 console.error('❌ Error al actualizar en Firebase:', error);
+                console.error('Detalles del error:', {
+                    code: error.code,
+                    message: error.message,
+                    id: id,
+                    datos: datosFirebase
+                });
+                
+                // Si el documento no existe (code: 'not-found'), crearlo CON EL MISMO ID
+                if (error.code === 'not-found') {
+                    try {
+                        console.log('📝 El departamento no existe en Firebase, sincronizándolo con el mismo ID:', id);
+                        // Crear el documento en Firebase con el MISMO ID que tiene en localStorage
+                        const datosCompletos = {
+                            ...datosFirebase,
+                            fechaCreacion: departamentos[index].fechaCreacion || new Date().toISOString()
+                        };
+                        // setDoc con el ID específico crea/actualiza el documento sin duplicar
+                        await this.firestore.setDoc(docRef, datosCompletos);
+                        console.log('✅ Departamento sincronizado exitosamente en Firebase con ID:', id);
+                    } catch (createError) {
+                        console.error('❌ Error al sincronizar departamento en Firebase:', createError);
+                    }
+                }
             }
         }
         
@@ -420,11 +451,17 @@ const Model = {
         // Sincronizar con Firebase si está habilitado
         if (this.useFirebase) {
             try {
+                console.log('🗑️ Eliminando departamento de Firebase...', id);
                 const docRef = this.firestore.doc(this.db, 'departamentos', id);
                 await this.firestore.deleteDoc(docRef);
-                console.log('🔥 Departamento eliminado de Firebase');
+                console.log('✅ Departamento eliminado exitosamente de Firebase');
             } catch (error) {
                 console.error('❌ Error al eliminar de Firebase:', error);
+                console.error('Detalles del error:', {
+                    code: error.code,
+                    message: error.message,
+                    id: id
+                });
             }
         }
         
@@ -563,25 +600,65 @@ const Model = {
             throw new Error('El departamento ya está reservado en esas fechas');
         }
 
-        reservas[index] = {
-            ...reservas[index],
+        // Preparar los datos actualizados (IGUAL QUE DEPARTAMENTOS)
+        const datosFirebase = {
             departamentoId: datosActualizados.departamentoId,
             huesped: datosActualizados.huesped.trim(),
             fechaEntrada: datosActualizados.fechaEntrada,
             fechaSalida: datosActualizados.fechaSalida,
             fechaModificacion: new Date().toISOString()
         };
+
+        // Validar que todos los campos requeridos tienen valores
+        if (!datosFirebase.departamentoId || !datosFirebase.huesped || !datosFirebase.fechaEntrada || !datosFirebase.fechaSalida) {
+            throw new Error('Faltan campos requeridos para la reserva');
+        }
+
+        // Actualizar en localStorage
+        reservas[index] = {
+            ...reservas[index],
+            ...datosFirebase
+        };
         
         localStorage.setItem('reservas', JSON.stringify(reservas));
 
         // Sincronizar con Firebase si está habilitado
         if (this.useFirebase) {
+            const docRef = this.firestore.doc(this.db, 'reservas', id);
+            
             try {
-                const docRef = this.firestore.doc(this.db, 'reservas', id);
-                await this.firestore.updateDoc(docRef, reservas[index]);
-                console.log('🔥 Reserva actualizada en Firebase');
+                console.log('🔄 Actualizando reserva en Firebase...', { id, datosFirebase });
+                await this.firestore.updateDoc(docRef, datosFirebase);
+                console.log('✅ Reserva actualizada exitosamente en Firebase');
             } catch (error) {
-                console.error('❌ Error al actualizar reserva en Firebase:', error);
+                console.error('❌ Error al actualizar en Firebase:', error);
+                console.error('Detalles del error:', {
+                    code: error.code,
+                    message: error.message,
+                    id: id,
+                    datos: datosFirebase
+                });
+                
+                // Si el documento no existe (code: 'not-found'), crearlo CON EL MISMO ID
+                if (error.code === 'not-found') {
+                    try {
+                        console.log('📝 El documento no existe en Firebase, sincronizándolo con el mismo ID:', id);
+                        // Incluir todos los datos de la reserva para la creación
+                        const datosCompletos = {
+                            departamentoId: datosFirebase.departamentoId,
+                            huesped: datosFirebase.huesped,
+                            fechaEntrada: datosFirebase.fechaEntrada,
+                            fechaSalida: datosFirebase.fechaSalida,
+                            fechaCreacion: reservas[index].fechaCreacion || new Date().toISOString(),
+                            fechaModificacion: datosFirebase.fechaModificacion
+                        };
+                        // setDoc con el ID específico crea/actualiza el documento sin duplicar
+                        await this.firestore.setDoc(docRef, datosCompletos);
+                        console.log('✅ Documento sincronizado exitosamente en Firebase con ID:', id);
+                    } catch (createError) {
+                        console.error('❌ Error al sincronizar documento en Firebase:', createError);
+                    }
+                }
             }
         }
         
@@ -606,11 +683,17 @@ const Model = {
         // Sincronizar con Firebase si está habilitado
         if (this.useFirebase) {
             try {
+                console.log('🗑️ Eliminando reserva de Firebase...', id);
                 const docRef = this.firestore.doc(this.db, 'reservas', id);
                 await this.firestore.deleteDoc(docRef);
-                console.log('🔥 Reserva eliminada de Firebase');
+                console.log('✅ Reserva eliminada exitosamente de Firebase');
             } catch (error) {
                 console.error('❌ Error al eliminar reserva de Firebase:', error);
+                console.error('Detalles del error:', {
+                    code: error.code,
+                    message: error.message,
+                    id: id
+                });
             }
         }
         
@@ -709,9 +792,21 @@ const Model = {
         const reservas = this.obtenerReservasPorDepartamento(departamentoId);
         const fechasReservadas = new Map();
 
+        console.log('📅 Procesando reservas para el mes:', { departamentoId, anio, mes, totalReservas: reservas.length });
+
         reservas.forEach(reserva => {
-            const fechaEntrada = new Date(reserva.fechaEntrada);
-            const fechaSalida = new Date(reserva.fechaSalida);
+            // Crear fechas locales para evitar problemas de zona horaria
+            const [anioEntrada, mesEntrada, diaEntrada] = reserva.fechaEntrada.split('-').map(n => parseInt(n));
+            const [anioSalida, mesSalida, diaSalida] = reserva.fechaSalida.split('-').map(n => parseInt(n));
+            
+            const fechaEntrada = new Date(anioEntrada, mesEntrada - 1, diaEntrada);
+            const fechaSalida = new Date(anioSalida, mesSalida - 1, diaSalida);
+            
+            console.log('📅 Procesando reserva:', {
+                huesped: reserva.huesped,
+                entrada: fechaEntrada.toDateString(),
+                salida: fechaSalida.toDateString()
+            });
             
             // Iterar por cada día de la reserva
             let fechaActual = new Date(fechaEntrada);
@@ -725,11 +820,17 @@ const Model = {
                     
                     // Determinar tipo de día
                     let tipo = 'reservado';
-                    if (fechaActual.getTime() === fechaEntrada.getTime()) {
+                    if (fechaActual.getDate() === fechaEntrada.getDate() && 
+                        fechaActual.getMonth() === fechaEntrada.getMonth() && 
+                        fechaActual.getFullYear() === fechaEntrada.getFullYear()) {
                         tipo = 'inicio';
-                    } else if (fechaActual.getTime() === fechaSalida.getTime()) {
+                    } else if (fechaActual.getDate() === fechaSalida.getDate() && 
+                              fechaActual.getMonth() === fechaSalida.getMonth() && 
+                              fechaActual.getFullYear() === fechaSalida.getFullYear()) {
                         tipo = 'fin';
                     }
+                    
+                    console.log('📅 Agregando día reservado:', { clave, dia, tipo });
                     
                     fechasReservadas.set(clave, {
                         dia: dia,
@@ -743,6 +844,7 @@ const Model = {
             }
         });
 
+        console.log('📅 Fechas reservadas generadas:', Array.from(fechasReservadas.entries()));
         return fechasReservadas;
     },
 
@@ -819,10 +921,110 @@ const Model = {
         if (datos.reservas) {
             localStorage.setItem('reservas', JSON.stringify(datos.reservas));
         }
+    },
+
+    /**
+     * Limpiar duplicados en Firebase (función de mantenimiento)
+     * Esta función elimina reservas duplicadas basándose en huésped y fechas
+     */
+    async limpiarDuplicadosFirebase() {
+        if (!this.useFirebase) {
+            console.log('Firebase no está habilitado');
+            return;
+        }
+
+        try {
+            console.log('🧹 Iniciando limpieza de duplicados en Firebase...');
+            
+            // Obtener todas las reservas de Firebase
+            const reservasSnapshot = await this.firestore.getDocs(
+                this.firestore.collection(this.db, 'reservas')
+            );
+            
+            const reservasFirebase = [];
+            reservasSnapshot.docs.forEach(doc => {
+                reservasFirebase.push({
+                    id: doc.id,
+                    ...doc.data()
+                });
+            });
+
+            console.log('📊 Reservas encontradas en Firebase:', reservasFirebase.length);
+
+            // Encontrar duplicados (mismo huésped y fechas)
+            const duplicados = [];
+            const yaRevisados = new Set();
+
+            for (let i = 0; i < reservasFirebase.length; i++) {
+                if (yaRevisados.has(i)) continue;
+                
+                const reservaA = reservasFirebase[i];
+                const similares = [reservaA];
+                
+                for (let j = i + 1; j < reservasFirebase.length; j++) {
+                    const reservaB = reservasFirebase[j];
+                    
+                    if (reservaA.huesped === reservaB.huesped && 
+                        reservaA.departamentoId === reservaB.departamentoId &&
+                        (reservaA.fechaEntrada === reservaB.fechaEntrada || 
+                         Math.abs(new Date(reservaA.fechaEntrada) - new Date(reservaB.fechaEntrada)) <= 24 * 60 * 60 * 1000)) {
+                        similares.push(reservaB);
+                        yaRevisados.add(j);
+                    }
+                }
+                
+                if (similares.length > 1) {
+                    duplicados.push(similares);
+                }
+                yaRevisados.add(i);
+            }
+
+            console.log('🔍 Grupos de duplicados encontrados:', duplicados.length);
+
+            // Eliminar duplicados (mantener el más reciente)
+            for (const grupo of duplicados) {
+                // Ordenar por fecha de modificación/creación (más reciente primero)
+                grupo.sort((a, b) => {
+                    const fechaA = new Date(a.fechaModificacion || a.fechaCreacion);
+                    const fechaB = new Date(b.fechaModificacion || b.fechaCreacion);
+                    return fechaB - fechaA;
+                });
+
+                console.log(`🗑️ Eliminando ${grupo.length - 1} duplicado(s) de ${grupo[0].huesped}`);
+                
+                // Eliminar todos excepto el primero (más reciente)
+                for (let i = 1; i < grupo.length; i++) {
+                    try {
+                        const docRef = this.firestore.doc(this.db, 'reservas', grupo[i].id);
+                        await this.firestore.deleteDoc(docRef);
+                        console.log(`  ✅ Eliminado duplicado: ${grupo[i].id}`);
+                    } catch (error) {
+                        console.error(`  ❌ Error al eliminar ${grupo[i].id}:`, error);
+                    }
+                }
+            }
+
+            console.log('🎉 Limpieza completada');
+            
+        } catch (error) {
+            console.error('❌ Error durante la limpieza:', error);
+        }
     }
 };
 
 // NO inicializar aquí - se inicializa desde controller.js
 // Model.init();
+
+// Funciones globales (accesibles desde consola)
+window.limpiarDuplicados = () => {
+    Model.limpiarDuplicadosFirebase();
+};
+
+window.sincronizarTodo = async () => {
+    console.log('🔄 Iniciando sincronización completa...');
+    await Model.sincronizarDesdeFirebase();
+    console.log('✅ Sincronización completada');
+    location.reload(); // Recargar la página para refrescar la vista
+};
 
 console.log('✅ Model cargado correctamente');

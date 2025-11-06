@@ -279,6 +279,92 @@ textarea {
     font-size: 0.85rem;
 }
 
+.btn-refresh {
+    background: var(--secondary-color);
+    color: white;
+    border: none;
+    padding: 8px 12px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    font-size: 0.9rem;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.btn-refresh:hover {
+    background: #45B268;
+    transform: translateY(-1px);
+}
+
+.btn-refresh .icon {
+    animation: none;
+    transition: transform 0.3s ease;
+}
+
+.btn-refresh:hover .icon {
+    transform: rotate(180deg);
+}
+
+.btn-refresh.loading .icon {
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+/* Loading Button Component */
+.loading-button {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    padding: 20px;
+    color: var(--text-color);
+    font-size: 0.95rem;
+}
+
+.loading-spinner {
+    width: 20px;
+    height: 20px;
+    border: 2px solid #f3f3f3;
+    border-top: 2px solid var(--primary-color);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+.loading-button.hidden {
+    display: none;
+}
+
+/* Card Header con botón */
+.card-header-with-button {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+}
+
+.card-header-with-button h3 {
+    margin: 0;
+    flex-grow: 1;
+}
+
+@media (max-width: 768px) {
+    .card-header-with-button {
+        flex-direction: column;
+        gap: 10px;
+        align-items: flex-start;
+    }
+    
+    .btn-refresh {
+        align-self: flex-end;
+    }
+}
+
 /* ========================================
    LISTADOS
    ======================================== */
@@ -556,8 +642,29 @@ footer p {
 
 .calendario-navegacion {
     display: flex;
-    gap: 10px;
+    gap: 15px;
     align-items: center;
+    justify-content: space-between;
+    margin: 20px 0;
+    padding: 15px;
+    background: #f8f9fa;
+    border-radius: 8px;
+    border: 1px solid var(--border-color);
+}
+
+.mes-actual-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+}
+
+.mes-actual-container h3 {
+    margin: 0;
+    font-weight: 600;
+    font-size: 1.2rem;
+    color: var(--dark-color);
+    text-align: center;
 }
 
 .btn-nav {
@@ -576,12 +683,17 @@ footer p {
     transform: scale(1.05);
 }
 
-.mes-actual {
-    font-weight: 600;
-    font-size: 1.1rem;
-    min-width: 150px;
-    text-align: center;
-    color: var(--dark-color);
+@media (max-width: 768px) {
+    .calendario-navegacion {
+        flex-direction: column;
+        gap: 10px;
+        text-align: center;
+    }
+    
+    .calendario-navegacion .btn {
+        width: 100%;
+        max-width: 200px;
+    }
 }
 
 .calendario-grid {
@@ -626,8 +738,25 @@ footer p {
 
 .dia.hoy {
     border-color: var(--primary-color);
+    border-width: 3px;
     font-weight: 700;
     background: #E3F2FD;
+    color: var(--primary-color);
+    position: relative;
+    box-shadow: 0 0 10px rgba(74, 144, 226, 0.3);
+}
+
+.dia.hoy::after {
+    content: "HOY";
+    position: absolute;
+    bottom: -2px;
+    right: -2px;
+    background: var(--primary-color);
+    color: white;
+    font-size: 0.6rem;
+    padding: 1px 4px;
+    border-radius: 3px;
+    font-weight: 700;
 }
 
 .dia.reservado {
@@ -675,6 +804,57 @@ footer p {
     align-items: center;
     gap: 8px;
     font-size: 0.9rem;
+}
+
+.leyenda-item .dia {
+    width: 24px;
+    height: 24px;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.7rem;
+    font-weight: bold;
+    cursor: default;
+    border: 2px solid var(--border-color);
+}
+
+.leyenda-item .dia:hover {
+    transform: none;
+}
+
+/* Estilos específicos para elementos de leyenda */
+.leyenda-item .dia.dia-disponible {
+    background: #C8E6C9;
+    border-color: var(--secondary-color);
+    color: var(--secondary-color);
+    font-size: 0.8rem;
+}
+
+.leyenda-item .dia.dia-reservado {
+    background: #FFCDD2;
+    border-color: var(--danger-color);
+    color: var(--danger-color);
+    font-size: 0.8rem;
+}
+
+.leyenda-item .dia.dia-inicio-reserva {
+    background: var(--danger-color);
+    color: white;
+    font-size: 0.8rem;
+}
+
+.leyenda-item .dia.dia-fin-reserva {
+    background: var(--warning-color);
+    color: white;
+    font-size: 0.8rem;
+}
+
+.leyenda-item .dia.dia-hoy {
+    background: #E3F2FD;
+    border-color: var(--primary-color);
+    color: var(--primary-color);
+    font-size: 0.8rem;
 }
 
 .leyenda-color {
@@ -733,15 +913,25 @@ footer p {
     transform: translateX(-50%);
     background: var(--dark-color);
     color: white;
-    padding: 5px 10px;
-    border-radius: 4px;
-    font-size: 0.8rem;
+    padding: 8px 12px;
+    border-radius: 6px;
+    font-size: 0.85rem;
     white-space: nowrap;
+    z-index: 1000;
     opacity: 0;
     pointer-events: none;
     transition: opacity 0.3s ease;
-    margin-bottom: 5px;
-    z-index: 10;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.dia-tooltip::after {
+    content: '';
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    border: 6px solid transparent;
+    border-top-color: var(--dark-color);
 }
 
 .dia:hover .dia-tooltip {

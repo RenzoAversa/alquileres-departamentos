@@ -44,7 +44,15 @@ const View = {
         // Contenedores
         listaDepartamentos: document.getElementById('lista-departamentos'),
         listaReservas: document.getElementById('lista-reservas'),
-        resultadosBusqueda: document.getElementById('resultados-busqueda')
+        resultadosBusqueda: document.getElementById('resultados-busqueda'),
+        
+        // Botones de recargar
+        btnRefreshDepartamentos: document.getElementById('btn-refresh-departamentos'),
+        btnRefreshReservas: document.getElementById('btn-refresh-reservas'),
+        
+        // Loading buttons
+        loadingDepartamentos: document.getElementById('loading-departamentos'),
+        loadingReservas: document.getElementById('loading-reservas')
     },
 
     // ========================================
@@ -67,6 +75,7 @@ const View = {
                     <p class="text-muted">Agrega tu primer departamento usando el formulario anterior.</p>
                 </div>
             `;
+            this.ocultarLoadingDepartamentos();
             return;
         }
 
@@ -104,6 +113,9 @@ const View = {
                 </div>
             </div>
         `).join('');
+        
+        // Ocultar loading
+        this.ocultarLoadingDepartamentos();
     },
 
     /**
@@ -154,6 +166,7 @@ const View = {
                     <p class="text-muted">Registra tu primera reserva usando el formulario anterior.</p>
                 </div>
             `;
+            this.ocultarLoadingReservas();
             return;
         }
 
@@ -219,6 +232,9 @@ const View = {
                 </div>
             `;
         }).join('');
+        
+        // Ocultar loading
+        this.ocultarLoadingReservas();
     },
 
     /**
@@ -450,9 +466,22 @@ const View = {
         // Obtener reservas del mes
         const fechasReservadas = Model.obtenerReservasPorMes(departamentoId, anio, mes);
         
-        // Fecha de hoy
-        const hoy = new Date();
-        hoy.setHours(0, 0, 0, 0);
+        // Fecha de hoy (mejorada para evitar problemas de zona horaria)
+        const ahora = new Date();
+        const hoy = new Date(ahora.getFullYear(), ahora.getMonth(), ahora.getDate());
+        
+        console.log('📅 Renderizando calendario:', { 
+            departamentoId, 
+            anio, 
+            mes, 
+            hoy: hoy.toDateString(),
+            hoyDetalle: {
+                año: hoy.getFullYear(),
+                mes: hoy.getMonth(),
+                dia: hoy.getDate()
+            },
+            calendarioDetalle: { anio, mes }
+        });
 
         // Actualizar el título del mes
         const meses = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
@@ -487,22 +516,43 @@ const View = {
             diaElement.className = 'dia';
             diaElement.textContent = dia;
 
-            // Verificar si es hoy
+            // Verificar si es hoy (comparación mejorada)
             const fechaActual = new Date(anio, mes, dia);
-            if (fechaActual.getTime() === hoy.getTime()) {
+            const esHoy = fechaActual.getFullYear() === hoy.getFullYear() && 
+                         fechaActual.getMonth() === hoy.getMonth() && 
+                         fechaActual.getDate() === hoy.getDate();
+            
+            console.log(`🔍 Comparando día ${dia}:`, {
+                fechaActual: fechaActual.toDateString(),
+                esHoy,
+                comparacion: {
+                    años: `${fechaActual.getFullYear()} === ${hoy.getFullYear()}`,
+                    meses: `${fechaActual.getMonth()} === ${hoy.getMonth()}`,
+                    dias: `${fechaActual.getDate()} === ${hoy.getDate()}`
+                }
+            });
+            
+            if (esHoy) {
                 diaElement.classList.add('hoy');
+                console.log('� ¡Día HOY detectado y clase agregada!:', dia);
             }
 
             // Verificar si está reservado
             const clave = `${anio}-${mes}-${dia}`;
+            console.log('🔍 Buscando reserva para:', clave);
+            
             if (fechasReservadas.has(clave)) {
                 const reservaInfo = fechasReservadas.get(clave);
+                console.log('📅 Reserva encontrada:', reservaInfo);
+                
                 diaElement.classList.add('reservado');
                 
                 if (reservaInfo.tipo === 'inicio') {
                     diaElement.classList.add('inicio-reserva');
+                    console.log('🔴 Inicio reserva:', dia);
                 } else if (reservaInfo.tipo === 'fin') {
                     diaElement.classList.add('fin-reserva');
+                    console.log('🟠 Fin reserva:', dia);
                 }
 
                 // Añadir tooltip
@@ -571,6 +621,74 @@ const View = {
         const infoElement = document.getElementById('calendario-info-texto');
         if (infoElement) {
             infoElement.innerHTML = '<p class="text-muted">Selecciona un departamento del menú desplegable</p>';
+        }
+    },
+
+    // ========================================
+    // FUNCIONES DE LOADING
+    // ========================================
+
+    /**
+     * Mostrar loading para departamentos
+     */
+    mostrarLoadingDepartamentos() {
+        if (this.elements.loadingDepartamentos) {
+            this.elements.loadingDepartamentos.classList.remove('hidden');
+        }
+        if (this.elements.listaDepartamentos) {
+            this.elements.listaDepartamentos.style.display = 'none';
+        }
+        if (this.elements.btnRefreshDepartamentos) {
+            this.elements.btnRefreshDepartamentos.classList.add('loading');
+            this.elements.btnRefreshDepartamentos.disabled = true;
+        }
+    },
+
+    /**
+     * Ocultar loading para departamentos
+     */
+    ocultarLoadingDepartamentos() {
+        if (this.elements.loadingDepartamentos) {
+            this.elements.loadingDepartamentos.classList.add('hidden');
+        }
+        if (this.elements.listaDepartamentos) {
+            this.elements.listaDepartamentos.style.display = 'block';
+        }
+        if (this.elements.btnRefreshDepartamentos) {
+            this.elements.btnRefreshDepartamentos.classList.remove('loading');
+            this.elements.btnRefreshDepartamentos.disabled = false;
+        }
+    },
+
+    /**
+     * Mostrar loading para reservas
+     */
+    mostrarLoadingReservas() {
+        if (this.elements.loadingReservas) {
+            this.elements.loadingReservas.classList.remove('hidden');
+        }
+        if (this.elements.listaReservas) {
+            this.elements.listaReservas.style.display = 'none';
+        }
+        if (this.elements.btnRefreshReservas) {
+            this.elements.btnRefreshReservas.classList.add('loading');
+            this.elements.btnRefreshReservas.disabled = true;
+        }
+    },
+
+    /**
+     * Ocultar loading para reservas
+     */
+    ocultarLoadingReservas() {
+        if (this.elements.loadingReservas) {
+            this.elements.loadingReservas.classList.add('hidden');
+        }
+        if (this.elements.listaReservas) {
+            this.elements.listaReservas.style.display = 'block';
+        }
+        if (this.elements.btnRefreshReservas) {
+            this.elements.btnRefreshReservas.classList.remove('loading');
+            this.elements.btnRefreshReservas.disabled = false;
         }
     }
 };
