@@ -328,12 +328,16 @@ const View = {
                     <strong>✅ ${disponibles.length} departamento${disponibles.length !== 1 ? 's' : ''} disponible${disponibles.length !== 1 ? 's' : ''}</strong>
                 </div>
                 ${disponibles.map(dept => `
-                    <div class="resultado-item" style="border-left: 4px solid #28a745;">
+                    <button class="resultado-item resultado-btn" 
+                            data-dept-id="${dept.id}" 
+                            data-fecha-entrada="${criterios.fechaEntrada || ''}" 
+                            data-fecha-salida="${criterios.fechaSalida || ''}"
+                            style="border-left: 4px solid #28a745; width: 100%; text-align: left; background: white; cursor: pointer; transition: all 0.3s;">
                         <h4>🏢 ${dept.nombre}</h4>
                         <p><strong>Capacidad:</strong> ${dept.capacidad} persona${dept.capacidad !== 1 ? 's' : ''}</p>
                         ${dept.descripcion ? `<p><strong>Descripción:</strong> ${dept.descripcion}</p>` : ''}
-                        <p class="disponible">✅ Disponible</p>
-                    </div>
+                        <p class="disponible">✅ Disponible - Click para ver en calendario</p>
+                    </button>
                 `).join('')}
             `;
         }
@@ -345,7 +349,11 @@ const View = {
                     <strong>❌ ${noDisponibles.length} departamento${noDisponibles.length !== 1 ? 's' : ''} no disponible${noDisponibles.length !== 1 ? 's' : ''}</strong>
                 </div>
                 ${noDisponibles.map(dept => `
-                    <div class="resultado-item" style="border-left: 4px solid #dc3545; background-color: #fff5f5;">
+                    <button class="resultado-item resultado-btn" 
+                            data-dept-id="${dept.id}" 
+                            data-fecha-entrada="${criterios.fechaEntrada || ''}" 
+                            data-fecha-salida="${criterios.fechaSalida || ''}"
+                            style="border-left: 4px solid #dc3545; background-color: #fff5f5; width: 100%; text-align: left; cursor: pointer; transition: all 0.3s;">
                         <h4>🏢 ${dept.nombre}</h4>
                         <p><strong>Capacidad:</strong> ${dept.capacidad} persona${dept.capacidad !== 1 ? 's' : ''}</p>
                         ${dept.descripcion ? `<p><strong>Descripción:</strong> ${dept.descripcion}</p>` : ''}
@@ -358,8 +366,9 @@ const View = {
                                     return `<li><strong>${reserva.huesped}</strong> - Del ${entrada} al ${salida}</li>`;
                                 }).join('')}
                             </ul>
+                            <p style="margin-top: 10px; font-style: italic; color: #6c757d;">Click para ver en calendario</p>
                         </div>
-                    </div>
+                    </button>
                 `).join('')}
             `;
         }
@@ -497,8 +506,9 @@ const View = {
      * @param {string} departamentoId - ID del departamento
      * @param {number} anio - Año
      * @param {number} mes - Mes (0-11)
+     * @param {Object} rangoFechas - Opcional: objeto con fechaEntrada y fechaSalida para resaltar
      */
-    renderizarCalendario(departamentoId, anio, mes) {
+    renderizarCalendario(departamentoId, anio, mes, rangoFechas = null) {
         const container = document.getElementById('calendario-grid');
         if (!container) return;
 
@@ -514,6 +524,29 @@ const View = {
         // Fecha de hoy (mejorada para evitar problemas de zona horaria)
         const ahora = new Date();
         const hoy = new Date(ahora.getFullYear(), ahora.getMonth(), ahora.getDate());
+        
+        // Procesar rango de fechas de búsqueda si existe
+        let fechaEntradaBusqueda = null;
+        let fechaSalidaBusqueda = null;
+        if (rangoFechas && rangoFechas.fechaEntrada && rangoFechas.fechaSalida) {
+            // Parsear las fechas correctamente evitando problemas de zona horaria
+            // El formato esperado es "YYYY-MM-DD"
+            const [anioE, mesE, diaE] = rangoFechas.fechaEntrada.split('-').map(Number);
+            const [anioS, mesS, diaS] = rangoFechas.fechaSalida.split('-').map(Number);
+            
+            // Crear fechas en hora local (mes es 0-indexed)
+            fechaEntradaBusqueda = new Date(anioE, mesE - 1, diaE);
+            fechaSalidaBusqueda = new Date(anioS, mesS - 1, diaS);
+            
+            console.log('🔍 Resaltando rango de búsqueda:', {
+                entradaOriginal: rangoFechas.fechaEntrada,
+                entrada: fechaEntradaBusqueda.toDateString(),
+                entradaTime: fechaEntradaBusqueda.getTime(),
+                salidaOriginal: rangoFechas.fechaSalida,
+                salida: fechaSalidaBusqueda.toDateString(),
+                salidaTime: fechaSalidaBusqueda.getTime()
+            });
+        }
         
         console.log('📅 Renderizando calendario:', { 
             departamentoId, 
@@ -559,7 +592,12 @@ const View = {
         for (let dia = 1; dia <= diasEnMes; dia++) {
             const diaElement = document.createElement('div');
             diaElement.className = 'dia';
-            diaElement.textContent = dia;
+            
+            // Crear span para el número del día
+            const numeroDia = document.createElement('span');
+            numeroDia.className = 'numero-dia';
+            numeroDia.textContent = dia;
+            diaElement.appendChild(numeroDia);
 
             // Verificar si es hoy (comparación mejorada)
             const fechaActual = new Date(anio, mes, dia);
@@ -600,13 +638,60 @@ const View = {
                     console.log('🟠 Fin reserva:', dia);
                 }
 
-                // Añadir tooltip
+                // Añadir tooltip (para desktop)
                 const tooltip = document.createElement('div');
                 tooltip.className = 'dia-tooltip';
                 tooltip.textContent = `Reservado: ${reservaInfo.huesped}`;
                 diaElement.appendChild(tooltip);
+                
+                // Añadir etiqueta visible para móvil
+                const etiquetaHuesped = document.createElement('span');
+                etiquetaHuesped.className = 'etiqueta-huesped';
+                // Usar iniciales o nombre corto
+                const nombreCorto = reservaInfo.huesped.length > 10 
+                    ? reservaInfo.huesped.substring(0, 8) + '...'
+                    : reservaInfo.huesped;
+                etiquetaHuesped.textContent = nombreCorto;
+                etiquetaHuesped.title = reservaInfo.huesped; // Tooltip nativo
+                diaElement.appendChild(etiquetaHuesped);
             } else if (fechaActual >= hoy) {
                 diaElement.classList.add('disponible');
+            }
+
+            // Resaltar rango de fechas de búsqueda
+            if (fechaEntradaBusqueda && fechaSalidaBusqueda) {
+                const fechaActualNorm = new Date(anio, mes, dia);
+                
+                if (fechaActualNorm >= fechaEntradaBusqueda && fechaActualNorm <= fechaSalidaBusqueda) {
+                    diaElement.classList.add('rango-busqueda');
+                    
+                    // Agregar borde especial para inicio y fin del rango
+                    const esEntrada = fechaActualNorm.getTime() === fechaEntradaBusqueda.getTime();
+                    const esSalida = fechaActualNorm.getTime() === fechaSalidaBusqueda.getTime();
+                    
+                    console.log(`📅 Día ${dia}: fechaActual=${fechaActualNorm.getTime()}, entrada=${fechaEntradaBusqueda.getTime()}, salida=${fechaSalidaBusqueda.getTime()}, esEntrada=${esEntrada}, esSalida=${esSalida}`);
+                    
+                    if (esEntrada) {
+                        diaElement.classList.add('inicio-busqueda');
+                        console.log('🟢 Agregando ENTRADA al día:', dia, fechaActualNorm);
+                        // Agregar etiqueta ENTRADA como elemento HTML
+                        const etiqueta = document.createElement('span');
+                        etiqueta.className = 'etiqueta-fecha';
+                        etiqueta.textContent = 'ENTRADA';
+                        diaElement.appendChild(etiqueta);
+                        console.log('✅ Etiqueta ENTRADA agregada. Hijos del dia:', diaElement.children.length);
+                    }
+                    if (esSalida) {
+                        diaElement.classList.add('fin-busqueda');
+                        console.log('🟠 Agregando SALIDA al día:', dia, fechaActualNorm);
+                        // Agregar etiqueta SALIDA como elemento HTML
+                        const etiqueta = document.createElement('span');
+                        etiqueta.className = 'etiqueta-fecha';
+                        etiqueta.textContent = 'SALIDA';
+                        diaElement.appendChild(etiqueta);
+                        console.log('✅ Etiqueta SALIDA agregada. Hijos del dia:', diaElement.children.length);
+                    }
+                }
             }
 
             container.appendChild(diaElement);

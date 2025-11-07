@@ -4,6 +4,10 @@
 // ========================================
 
 const Controller = {
+    // Estado del calendario
+    calendarioActual: null,
+    rangoFechasBusqueda: null, // Para resaltar fechas buscadas
+    
     // ========================================
     // INICIALIZACIÓN
     // ========================================
@@ -458,15 +462,104 @@ const Controller = {
             const resultado = Model.buscarDepartamentosConDisponibilidad(criterios);
             View.renderizarResultadosBusqueda(resultado, criterios);
             
-            if (departamentosDisponibles.length > 0) {
-                View.mostrarAlerta(
-                    `Se encontraron ${departamentosDisponibles.length} departamento(s) disponible(s)`,
-                    'success'
-                );
+            // Guardar el rango de fechas para resaltar en el calendario
+            if (criterios.fechaEntrada && criterios.fechaSalida) {
+                this.rangoFechasBusqueda = {
+                    fechaEntrada: criterios.fechaEntrada,
+                    fechaSalida: criterios.fechaSalida
+                };
+            } else {
+                this.rangoFechasBusqueda = null;
             }
+            
+            // Configurar eventos click en los resultados
+            setTimeout(() => {
+                this.configurarEventosResultadosBusqueda();
+            }, 100);
         } catch (error) {
             View.mostrarAlerta('❌ Error en la búsqueda: ' + error.message, 'error');
         }
+    },
+
+    /**
+     * Configurar eventos de click en los resultados de búsqueda
+     */
+    configurarEventosResultadosBusqueda() {
+        const botonesResultado = document.querySelectorAll('.resultado-btn');
+        console.log(`🔧 Configurando ${botonesResultado.length} botones de resultados`);
+        
+        botonesResultado.forEach(btn => {
+            btn.addEventListener('click', () => {
+                const deptId = btn.dataset.deptId;
+                const fechaEntrada = btn.dataset.fechaEntrada;
+                const fechaSalida = btn.dataset.fechaSalida;
+                
+                console.log('📅 Click en resultado:', { deptId, fechaEntrada, fechaSalida });
+                
+                this.irACalendarioConFechas(deptId, fechaEntrada, fechaSalida);
+            });
+        });
+    },
+
+    /**
+     * Navegar al calendario y mostrar el departamento con las fechas resaltadas
+     */
+    irACalendarioConFechas(departamentoId, fechaEntrada, fechaSalida) {
+        console.log('🎯 Navegando a calendario:', { departamentoId, fechaEntrada, fechaSalida });
+        
+        // Guardar el rango de fechas
+        if (fechaEntrada && fechaSalida) {
+            this.rangoFechasBusqueda = { fechaEntrada, fechaSalida };
+        }
+        
+        // Cambiar al tab de calendario
+        View.cambiarTab('calendario');
+        
+        // Inicializar calendario primero (para asegurar que el select esté lleno)
+        this.inicializarCalendario();
+        
+        // Seleccionar el departamento en el select y actualizar calendario
+        setTimeout(() => {
+            const select = document.getElementById('calendario-departamento');
+            if (select) {
+                console.log('📋 Select encontrado, opciones disponibles:', select.options.length);
+                console.log('📋 Intentando seleccionar departamento:', departamentoId);
+                
+                // Seleccionar el departamento
+                select.value = departamentoId;
+                console.log('📋 Valor del select después de asignar:', select.value);
+                
+                // Verificar que el departamento existe en las opciones
+                const opcionExiste = Array.from(select.options).some(opt => opt.value === departamentoId);
+                if (!opcionExiste) {
+                    console.warn('⚠️ El departamento no existe en las opciones del select');
+                    View.mostrarAlerta('Departamento no encontrado en la lista', 'warning');
+                    return;
+                }
+                
+                // Determinar el mes a mostrar (usar fecha de entrada)
+                if (fechaEntrada) {
+                    const fecha = new Date(fechaEntrada);
+                    this.calendarioActual = {
+                        departamentoId: departamentoId,
+                        anio: fecha.getFullYear(),
+                        mes: fecha.getMonth()
+                    };
+                }
+                
+                // Actualizar el calendario
+                this.actualizarCalendario(departamentoId);
+                
+                // Mostrar confirmación
+                const departamento = Model.obtenerDepartamentoPorId(departamentoId);
+                if (departamento) {
+                    console.log('✅ Calendario mostrado para:', departamento.nombre);
+                    View.mostrarAlerta(`📅 Mostrando calendario de "${departamento.nombre}"`, 'info');
+                }
+            } else {
+                console.error('❌ No se encontró el select de calendario');
+            }
+        }, 200);
     },
 
     // ========================================
@@ -594,7 +687,8 @@ const Controller = {
         View.renderizarCalendario(
             departamentoId,
             this.calendarioActual.anio,
-            this.calendarioActual.mes
+            this.calendarioActual.mes,
+            this.rangoFechasBusqueda
         );
 
         View.actualizarInfoCalendario(departamento, reservas.length);

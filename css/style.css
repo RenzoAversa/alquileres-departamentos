@@ -466,6 +466,47 @@ textarea {
     font-weight: 600;
 }
 
+/* Botones de resultado clickeables */
+.resultado-btn {
+    display: block;
+    width: 100%;
+    text-align: left;
+    background: white;
+    border: 2px solid #28a745;
+    border-radius: 8px;
+    padding: 15px;
+    margin-bottom: 15px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    font-family: inherit;
+    font-size: inherit;
+}
+
+.resultado-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    border-width: 3px;
+}
+
+.resultado-btn:active {
+    transform: translateY(0);
+}
+
+.resultado-btn h4,
+.resultado-btn p {
+    margin: 5px 0;
+}
+
+.resultado-btn .disponible {
+    color: #28a745;
+    font-weight: 600;
+    margin-top: 10px;
+}
+
+.resultado-btn .no-disponible {
+    margin-top: 10px;
+}
+
 /* ========================================
    ALERTAS
    ======================================== */
@@ -624,6 +665,8 @@ footer p {
     border-radius: 12px;
     padding: 20px;
     box-shadow: var(--shadow);
+    overflow: hidden;
+    max-width: 100%;
 }
 
 .calendario-header {
@@ -699,24 +742,28 @@ footer p {
 .calendario-grid {
     display: grid;
     grid-template-columns: repeat(7, 1fr);
-    gap: 8px;
+    gap: 4px;
+    max-width: 100%;
+    overflow: hidden;
 }
 
 .dia-header {
     text-align: center;
     font-weight: 600;
-    padding: 10px 5px;
+    padding: 8px 3px;
     background: var(--light-color);
     border-radius: 6px;
     color: var(--dark-color);
-    font-size: 0.9rem;
+    font-size: 0.85rem;
 }
 
 .dia {
     aspect-ratio: 1;
     display: flex;
+    flex-direction: column;
     align-items: center;
     justify-content: center;
+    gap: 2px;
     border-radius: 8px;
     border: 2px solid var(--border-color);
     background: white;
@@ -724,6 +771,9 @@ footer p {
     transition: all 0.3s ease;
     font-weight: 500;
     position: relative;
+    min-height: 45px;
+    padding: 3px;
+    overflow: hidden;
 }
 
 .dia:hover {
@@ -776,6 +826,96 @@ footer p {
     color: var(--secondary-color);
 }
 
+/* Rango de fechas de búsqueda */
+.dia.rango-busqueda {
+    background: #FFF9C4 !important;
+    border: 2px solid #FBC02D !important;
+    box-shadow: 0 0 8px rgba(251, 192, 45, 0.4);
+    position: relative;
+    z-index: 1;
+}
+
+.dia.inicio-busqueda {
+    background: linear-gradient(135deg, #66BB6A 0%, #43A047 100%) !important;
+    border: 3px solid #2E7D32 !important;
+    color: white !important;
+    font-weight: 900;
+    box-shadow: 0 0 12px rgba(76, 175, 80, 0.6), inset 0 -2px 4px rgba(0,0,0,0.2);
+    font-size: 1.3rem;
+}
+
+.dia.fin-busqueda {
+    background: linear-gradient(135deg, #FF7043 0%, #F4511E 100%) !important;
+    border: 3px solid #D84315 !important;
+    color: white !important;
+    font-weight: 900;
+    box-shadow: 0 0 12px rgba(255, 87, 34, 0.6), inset 0 -2px 4px rgba(0,0,0,0.2);
+    font-size: 1.3rem;
+}
+
+/* Etiqueta de fecha (ENTRADA/SALIDA) */
+.etiqueta-fecha {
+    display: block;
+    background: rgba(0, 0, 0, 0.85);
+    color: white;
+    font-size: 0.55rem;
+    padding: 3px 7px;
+    border-radius: 3px;
+    font-weight: 700;
+    white-space: nowrap;
+    letter-spacing: 0.5px;
+    margin-top: auto;
+    text-align: center;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+.dia.inicio-busqueda .etiqueta-fecha {
+    background: #1B5E20;
+}
+
+.dia.fin-busqueda .etiqueta-fecha {
+    background: #BF360C;
+}
+
+/* Número del día */
+.numero-dia {
+    font-size: inherit;
+    font-weight: inherit;
+    color: inherit;
+}
+
+/* Etiqueta de huésped (visible en móvil) */
+.etiqueta-huesped {
+    display: none; /* Oculta por defecto en desktop */
+    background: rgba(0, 0, 0, 0.8);
+    color: white;
+    font-size: 0.5rem;
+    padding: 2px 5px;
+    border-radius: 3px;
+    font-weight: 600;
+    text-align: center;
+    margin-top: auto;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* Mostrar en móviles */
+@media (max-width: 768px) {
+    .etiqueta-huesped {
+        display: block;
+    }
+    
+    /* Ocultar el tooltip hover en móvil ya que no funciona */
+    .dia-tooltip {
+        display: none;
+    }
+}
+
+.dia.rango-busqueda.reservado {
+    background: linear-gradient(135deg, #FFF9C4 50%, #FFCDD2 50%) !important;
+}
+
 .dia.inicio-reserva {
     background: var(--danger-color);
     color: white;
@@ -792,7 +932,7 @@ footer p {
 .calendario-leyenda {
     display: flex;
     justify-content: center;
-    gap: 20px;
+    gap: 15px;
     margin-top: 20px;
     padding-top: 15px;
     border-top: 2px solid var(--border-color);
@@ -802,21 +942,25 @@ footer p {
 .leyenda-item {
     display: flex;
     align-items: center;
-    gap: 8px;
-    font-size: 0.9rem;
+    gap: 6px;
+    font-size: 0.85rem;
 }
 
 .leyenda-item .dia {
-    width: 24px;
-    height: 24px;
+    width: 20px;
+    height: 20px;
+    min-height: 20px;
+    aspect-ratio: 1;
     border-radius: 4px;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 0.7rem;
+    font-size: 0.65rem;
     font-weight: bold;
     cursor: default;
     border: 2px solid var(--border-color);
+    padding: 0;
+    flex-shrink: 0;
 }
 
 .leyenda-item .dia:hover {
@@ -855,6 +999,28 @@ footer p {
     border-color: var(--primary-color);
     color: var(--primary-color);
     font-size: 0.8rem;
+}
+
+.leyenda-item .dia.rango-busqueda {
+    background: #FFF9C4;
+    border: 2px solid #FBC02D;
+    font-size: 0.8rem;
+}
+
+.leyenda-item .dia.inicio-busqueda {
+    background: #81C784;
+    border: 2px solid #4CAF50;
+    color: white;
+    font-size: 0.8rem;
+    font-weight: bold;
+}
+
+.leyenda-item .dia.fin-busqueda {
+    background: #FF8A65;
+    border: 2px solid #FF5722;
+    color: white;
+    font-size: 0.8rem;
+    font-weight: bold;
 }
 
 .leyenda-color {
@@ -940,17 +1106,48 @@ footer p {
 
 /* Responsive para calendario */
 @media (max-width: 768px) {
+    .calendario-container {
+        padding: 12px;
+    }
+    
     .calendario-grid {
-        gap: 4px;
+        gap: 3px;
     }
     
     .dia {
-        font-size: 0.85rem;
+        font-size: 0.8rem;
+        min-height: 40px;
+        border-width: 1px;
     }
     
     .dia-header {
+        font-size: 0.7rem;
+        padding: 6px 2px;
+    }
+    
+    .calendario-leyenda {
+        gap: 10px;
+    }
+    
+    .leyenda-item {
         font-size: 0.75rem;
-        padding: 8px 3px;
+        gap: 4px;
+    }
+    
+    .leyenda-item .dia {
+        width: 18px;
+        height: 18px;
+        min-height: 18px;
+    }
+    
+    .etiqueta-huesped {
+        font-size: 0.45rem;
+        padding: 1px 3px;
+    }
+    
+    .etiqueta-fecha {
+        font-size: 0.45rem;
+        padding: 1px 4px;
     }
     
     .calendario-header {
@@ -960,14 +1157,6 @@ footer p {
     
     .mes-actual {
         min-width: auto;
-    }
-    
-    .calendario-leyenda {
-        gap: 10px;
-    }
-    
-    .leyenda-item {
-        font-size: 0.8rem;
     }
 }
 
