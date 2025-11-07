@@ -288,17 +288,25 @@ const View = {
     
     /**
      * Renderizar resultados de búsqueda
-     * @param {Array} departamentos - Departamentos disponibles
+     * @param {Object} resultado - Objeto con arrays de disponibles y noDisponibles
      * @param {Object} criterios - Criterios usados en la búsqueda
      */
-    renderizarResultadosBusqueda(departamentos, criterios) {
+    renderizarResultadosBusqueda(resultado, criterios) {
         const container = this.elements.resultadosBusqueda;
         
-        if (!departamentos || departamentos.length === 0) {
+        // Si resultado es un array (retrocompatibilidad), convertirlo al nuevo formato
+        if (Array.isArray(resultado)) {
+            resultado = { disponibles: resultado, noDisponibles: [] };
+        }
+
+        const { disponibles, noDisponibles } = resultado;
+        const total = disponibles.length + noDisponibles.length;
+
+        if (total === 0) {
             container.innerHTML = `
                 <div class="empty-state">
                     <div class="icon">❌</div>
-                    <p>No se encontraron departamentos disponibles con los criterios especificados.</p>
+                    <p>No se encontraron departamentos con los criterios especificados.</p>
                 </div>
             `;
             return;
@@ -306,20 +314,57 @@ const View = {
 
         const criterioBusqueda = this.construirTextocriterio(criterios);
 
-        container.innerHTML = `
-            <div class="alert alert-success">
-                <strong>✅ ${departamentos.length} departamento${departamentos.length !== 1 ? 's' : ''} disponible${departamentos.length !== 1 ? 's' : ''}</strong>
+        let html = `
+            <div class="alert alert-info">
+                <strong>📊 Resultados: ${total} departamento${total !== 1 ? 's' : ''} encontrado${total !== 1 ? 's' : ''}</strong>
                 ${criterioBusqueda}
             </div>
-            ${departamentos.map(dept => `
-                <div class="resultado-item">
-                    <h4>🏢 ${dept.nombre}</h4>
-                    <p><strong>Capacidad:</strong> ${dept.capacidad} persona${dept.capacidad !== 1 ? 's' : ''}</p>
-                    ${dept.descripcion ? `<p><strong>Descripción:</strong> ${dept.descripcion}</p>` : ''}
-                    <p class="disponible">✅ Disponible</p>
-                </div>
-            `).join('')}
         `;
+
+        // Departamentos disponibles
+        if (disponibles.length > 0) {
+            html += `
+                <div class="alert alert-success">
+                    <strong>✅ ${disponibles.length} departamento${disponibles.length !== 1 ? 's' : ''} disponible${disponibles.length !== 1 ? 's' : ''}</strong>
+                </div>
+                ${disponibles.map(dept => `
+                    <div class="resultado-item" style="border-left: 4px solid #28a745;">
+                        <h4>🏢 ${dept.nombre}</h4>
+                        <p><strong>Capacidad:</strong> ${dept.capacidad} persona${dept.capacidad !== 1 ? 's' : ''}</p>
+                        ${dept.descripcion ? `<p><strong>Descripción:</strong> ${dept.descripcion}</p>` : ''}
+                        <p class="disponible">✅ Disponible</p>
+                    </div>
+                `).join('')}
+            `;
+        }
+
+        // Departamentos no disponibles
+        if (noDisponibles.length > 0) {
+            html += `
+                <div class="alert alert-danger" style="margin-top: 30px;">
+                    <strong>❌ ${noDisponibles.length} departamento${noDisponibles.length !== 1 ? 's' : ''} no disponible${noDisponibles.length !== 1 ? 's' : ''}</strong>
+                </div>
+                ${noDisponibles.map(dept => `
+                    <div class="resultado-item" style="border-left: 4px solid #dc3545; background-color: #fff5f5;">
+                        <h4>🏢 ${dept.nombre}</h4>
+                        <p><strong>Capacidad:</strong> ${dept.capacidad} persona${dept.capacidad !== 1 ? 's' : ''}</p>
+                        ${dept.descripcion ? `<p><strong>Descripción:</strong> ${dept.descripcion}</p>` : ''}
+                        <div class="no-disponible">
+                            <p style="color: #dc3545; font-weight: bold; margin-bottom: 10px;">❌ No disponible - Reservas existentes:</p>
+                            <ul style="margin: 0; padding-left: 20px; color: #721c24;">
+                                ${dept.reservasConflicto.map(reserva => {
+                                    const entrada = this.formatearFecha(reserva.fechaEntrada);
+                                    const salida = this.formatearFecha(reserva.fechaSalida);
+                                    return `<li><strong>${reserva.huesped}</strong> - Del ${entrada} al ${salida}</li>`;
+                                }).join('')}
+                            </ul>
+                        </div>
+                    </div>
+                `).join('')}
+            `;
+        }
+
+        container.innerHTML = html;
     },
 
     /**

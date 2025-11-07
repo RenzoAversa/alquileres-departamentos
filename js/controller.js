@@ -20,7 +20,6 @@ const Controller = {
         this.configurarEventosReservas();
         this.configurarEventosBusqueda();
         this.configurarEventosCalendario();
-        this.configurarBotonLimpiarDuplicados();
         
         // Configurar fechas mínimas
         View.configurarFechasMinimas();
@@ -34,75 +33,7 @@ const Controller = {
             this.actualizarVistaReservas();
         }, 100);
         
-        // Verificar si hay duplicados
-        this.verificarDuplicados();
-        
         console.log('✅ Controller inicializado correctamente');
-    },
-
-    /**
-     * Verificar si hay duplicados y mostrar botón de limpieza
-     */
-    verificarDuplicados() {
-        const departamentos = JSON.parse(localStorage.getItem('departamentos')) || [];
-        const reservas = JSON.parse(localStorage.getItem('reservas')) || [];
-        
-        const idsDeptos = departamentos.map(d => d.id);
-        const idsReservas = reservas.map(r => r.id);
-        
-        const duplicadosDeptos = idsDeptos.length !== new Set(idsDeptos).size;
-        const duplicadosReservas = idsReservas.length !== new Set(idsReservas).size;
-        
-        if (duplicadosDeptos || duplicadosReservas) {
-            const btn = document.getElementById('btn-limpiar-duplicados');
-            if (btn) {
-                btn.style.display = 'block';
-                console.warn('⚠️ Duplicados detectados - Botón de limpieza visible');
-            }
-        }
-    },
-
-    /**
-     * Configurar botón de limpiar duplicados
-     */
-    configurarBotonLimpiarDuplicados() {
-        const btn = document.getElementById('btn-limpiar-duplicados');
-        if (!btn) return;
-        
-        btn.addEventListener('click', () => {
-            if (!confirm('¿Limpiar todos los duplicados del almacenamiento local?\n\nEsto eliminará copias repetidas pero mantendrá los datos únicos.')) {
-                return;
-            }
-            
-            // Función para eliminar duplicados
-            const eliminarDuplicados = (items) => {
-                const idsVistos = new Set();
-                return items.filter(item => {
-                    if (!idsVistos.has(item.id)) {
-                        idsVistos.add(item.id);
-                        return true;
-                    }
-                    return false;
-                });
-            };
-            
-            // Limpiar departamentos
-            const departamentos = JSON.parse(localStorage.getItem('departamentos')) || [];
-            const deptsLimpios = eliminarDuplicados(departamentos);
-            
-            // Limpiar reservas
-            const reservas = JSON.parse(localStorage.getItem('reservas')) || [];
-            const reservasLimpias = eliminarDuplicados(reservas);
-            
-            // Guardar
-            localStorage.setItem('departamentos', JSON.stringify(deptsLimpios));
-            localStorage.setItem('reservas', JSON.stringify(reservasLimpias));
-            
-            const eliminados = (departamentos.length - deptsLimpios.length) + (reservas.length - reservasLimpias.length);
-            
-            alert(`✅ Duplicados eliminados: ${eliminados}\n\nRecargando página...`);
-            location.reload();
-        });
     },
 
     // ========================================
@@ -524,8 +455,8 @@ const Controller = {
         }
 
         try {
-            const departamentosDisponibles = Model.buscarDepartamentosDisponibles(criterios);
-            View.renderizarResultadosBusqueda(departamentosDisponibles, criterios);
+            const resultado = Model.buscarDepartamentosConDisponibilidad(criterios);
+            View.renderizarResultadosBusqueda(resultado, criterios);
             
             if (departamentosDisponibles.length > 0) {
                 View.mostrarAlerta(
