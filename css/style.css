@@ -744,7 +744,8 @@ footer p {
     grid-template-columns: repeat(7, 1fr);
     gap: 4px;
     max-width: 100%;
-    overflow: hidden;
+    overflow: visible; /* Permite que los tooltips se vean fuera del grid */
+    padding: 5px 0; /* Espacio extra para tooltips */
 }
 
 .dia-header {
@@ -773,7 +774,7 @@ footer p {
     position: relative;
     min-height: 45px;
     padding: 3px;
-    overflow: hidden;
+    overflow: visible; /* Cambiado para que el tooltip no se corte */
 }
 
 .dia:hover {
@@ -1074,20 +1075,20 @@ footer p {
 /* Tooltip para fechas reservadas */
 .dia-tooltip {
     position: absolute;
-    bottom: 100%;
+    bottom: calc(100% + 8px);
     left: 50%;
     transform: translateX(-50%);
     background: var(--dark-color);
     color: white;
-    padding: 8px 12px;
+    padding: 6px 10px;
     border-radius: 6px;
-    font-size: 0.85rem;
+    font-size: 0.8rem;
     white-space: nowrap;
     z-index: 1000;
     opacity: 0;
     pointer-events: none;
-    transition: opacity 0.3s ease;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    transition: opacity 0.3s ease, bottom 0.3s ease;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
 }
 
 .dia-tooltip::after {
@@ -1102,12 +1103,13 @@ footer p {
 
 .dia:hover .dia-tooltip {
     opacity: 1;
+    bottom: calc(100% + 10px);
 }
 
 /* Responsive para calendario */
 @media (max-width: 768px) {
     .calendario-container {
-        padding: 12px;
+        padding: 15px;
     }
     
     .calendario-grid {
@@ -1115,62 +1117,118 @@ footer p {
     }
     
     .dia {
-        font-size: 0.8rem;
-        min-height: 40px;
+        font-size: 0.95rem;
+        min-height: 60px;
         border-width: 1px;
+        aspect-ratio: auto;
+        padding: 5px 3px;
     }
     
     .dia-header {
-        font-size: 0.7rem;
-        padding: 6px 2px;
+        font-size: 0.8rem;
+        padding: 10px 3px;
+        font-weight: 600;
     }
     
     .calendario-leyenda {
-        gap: 10px;
+        gap: 12px;
     }
     
     .leyenda-item {
-        font-size: 0.75rem;
-        gap: 4px;
+        font-size: 0.8rem;
+        gap: 5px;
     }
     
     .leyenda-item .dia {
-        width: 18px;
-        height: 18px;
-        min-height: 18px;
+        width: 20px;
+        height: 20px;
+        min-height: 20px;
+        aspect-ratio: 1;
     }
     
     .etiqueta-huesped {
-        font-size: 0.45rem;
-        padding: 1px 3px;
+        font-size: 0.55rem;
+        padding: 2px 4px;
     }
     
     .etiqueta-fecha {
-        font-size: 0.45rem;
-        padding: 1px 4px;
+        font-size: 0.55rem;
+        padding: 2px 5px;
+    }
+    
+    .numero-dia {
+        font-size: 1rem;
+        font-weight: 600;
     }
     
     .calendario-header {
         flex-direction: column;
-        gap: 15px;
+        gap: 12px;
     }
     
     .mes-actual {
         min-width: auto;
+        font-size: 1.3rem;
+    }
+    
+    .calendario-navegacion {
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+    
+    .btn-nav {
+        padding: 8px 12px;
+        font-size: 0.9rem;
     }
 }
 
 @media (max-width: 480px) {
     .calendario-container {
-        padding: 10px;
+        padding: 12px;
+    }
+    
+    .calendario-grid {
+        gap: 2px;
     }
     
     .dia-header {
-        font-size: 0.7rem;
-        padding: 5px 2px;
+        font-size: 0.75rem;
+        padding: 8px 2px;
+        font-weight: 600;
     }
     
     .dia {
-        font-size: 0.75rem;
+        font-size: 0.9rem;
+        min-height: 55px;
+        aspect-ratio: auto;
+        padding: 4px 2px;
+    }
+    
+    .numero-dia {
+        font-size: 0.95rem;
+        font-weight: 600;
+    }
+    
+    .mes-actual {
+        font-size: 1.2rem;
+    }
+    
+    .etiqueta-huesped {
+        font-size: 0.5rem;
+        padding: 1px 3px;
+    }
+    
+    .etiqueta-fecha {
+        font-size: 0.5rem;
+        padding: 1px 4px;
+    }
+    
+    .btn-nav {
+        padding: 6px 10px;
+        font-size: 0.85rem;
+    }
+    
+    .leyenda-item .dia {
+        aspect-ratio: 1;
     }
 }

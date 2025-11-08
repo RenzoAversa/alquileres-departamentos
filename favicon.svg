@@ -1,0 +1,48 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <defs>
+    <linearGradient id="buildingGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#4A90E2;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#2E5C8A;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="calendarGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#FF6B6B;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#C92A2A;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  
+  <!-- Background circle -->
+  <circle cx="50" cy="50" r="48" fill="#f8f9fa" stroke="#dee2e6" stroke-width="2"/>
+  
+  <!-- Building -->
+  <rect x="20" y="35" width="35" height="45" fill="url(#buildingGrad)" rx="2"/>
+  
+  <!-- Windows -->
+  <rect x="25" y="40" width="6" height="6" fill="#fff" opacity="0.9" rx="1"/>
+  <rect x="34" y="40" width="6" height="6" fill="#fff" opacity="0.9" rx="1"/>
+  <rect x="44" y="40" width="6" height="6" fill="#fff" opacity="0.9" rx="1"/>
+  
+  <rect x="25" y="50" width="6" height="6" fill="#fff" opacity="0.9" rx="1"/>
+  <rect x="34" y="50" width="6" height="6" fill="#fff" opacity="0.9" rx="1"/>
+  <rect x="44" y="50" width="6" height="6" fill="#fff" opacity="0.9" rx="1"/>
+  
+  <rect x="25" y="60" width="6" height="6" fill="#fff" opacity="0.9" rx="1"/>
+  <rect x="34" y="60" width="6" height="6" fill="#fff" opacity="0.9" rx="1"/>
+  <rect x="44" y="60" width="6" height="6" fill="#fff" opacity="0.9" rx="1"/>
+  
+  <!-- Door -->
+  <rect x="34" y="70" width="8" height="10" fill="#2E5C8A" rx="1"/>
+  
+  <!-- Calendar badge -->
+  <rect x="48" y="48" width="32" height="32" fill="url(#calendarGrad)" rx="3" stroke="#fff" stroke-width="2"/>
+  
+  <!-- Calendar header -->
+  <rect x="50" y="50" width="28" height="8" fill="#fff" opacity="0.3" rx="2"/>
+  
+  <!-- Calendar rings -->
+  <rect x="53" y="48" width="3" height="4" fill="#fff" rx="1"/>
+  <rect x="59" y="48" width="3" height="4" fill="#fff" rx="1"/>
+  <rect x="71" y="48" width="3" height="4" fill="#fff" rx="1"/>
+  
+  <!-- Calendar grid/date -->
+  <text x="64" y="72" font-family="Arial, sans-serif" font-size="16" font-weight="bold" fill="#fff" text-anchor="middle">15</text>
+</svg>
