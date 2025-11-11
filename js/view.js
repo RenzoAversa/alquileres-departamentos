@@ -158,12 +158,12 @@ const View = {
         console.log(`🎨 Renderizando ${reservas.length} reservas`);
         const container = this.elements.listaReservas;
         
-        if (!reservas || reservas.length === 0) {
+        if (!departamentos || departamentos.length === 0) {
             container.innerHTML = `
                 <div class="empty-state">
-                    <div class="icon">📅</div>
-                    <p>No hay reservas registradas.</p>
-                    <p class="text-muted">Registra tu primera reserva usando el formulario anterior.</p>
+                    <div class="icon">🏢</div>
+                    <p>No hay departamentos registrados.</p>
+                    <p class="text-muted">Debes crear departamentos antes de poder ver reservas.</p>
                 </div>
             `;
             this.ocultarLoadingReservas();
@@ -186,52 +186,101 @@ const View = {
             console.warn(`🛡️ Vista: Bloqueados ${reservas.length - reservasUnicas.length} reserva(s) duplicada(s) en renderizado`);
         }
 
-        // Ordenar reservas por fecha de entrada (más reciente primero)
-        const reservasOrdenadas = [...reservasUnicas].sort((a, b) => 
-            new Date(b.fechaEntrada) - new Date(a.fechaEntrada)
+        // Agrupar reservas por departamento
+        const reservasPorDepartamento = {};
+        
+        departamentos.forEach(dept => {
+            reservasPorDepartamento[dept.id] = {
+                departamento: dept,
+                reservas: []
+            };
+        });
+
+        // Asignar reservas a cada departamento
+        reservasUnicas.forEach(reserva => {
+            if (reservasPorDepartamento[reserva.departamentoId]) {
+                reservasPorDepartamento[reserva.departamentoId].reservas.push(reserva);
+            }
+        });
+
+        // Ordenar departamentos por nombre
+        const departamentosOrdenados = departamentos.sort((a, b) => 
+            a.nombre.localeCompare(b.nombre)
         );
 
-        container.innerHTML = reservasOrdenadas.map(reserva => {
-            const departamento = departamentos.find(d => d.id === reserva.departamentoId);
-            const nombreDept = departamento ? departamento.nombre : 'Departamento no encontrado';
-            
-            // Formatear fechas
-            const fechaEntrada = this.formatearFecha(reserva.fechaEntrada);
-            const fechaSalida = this.formatearFecha(reserva.fechaSalida);
-            
-            // Verificar si la reserva está activa, pasada o futura
-            const hoy = new Date();
-            const entrada = new Date(reserva.fechaEntrada);
-            const salida = new Date(reserva.fechaSalida);
-            
-            let estadoBadge = '';
-            if (hoy >= entrada && hoy <= salida) {
-                estadoBadge = '<span class="badge badge-success">Activa</span>';
-            } else if (hoy > salida) {
-                estadoBadge = '<span class="badge">Finalizada</span>';
-            } else {
-                estadoBadge = '<span class="badge badge-warning">Próxima</span>';
-            }
-            
-            return `
-                <div class="item-lista" data-id="${reserva.id}">
-                    <div class="item-info">
-                        <h4>${reserva.huesped}</h4>
-                        <p><strong>Departamento:</strong> ${nombreDept}</p>
-                        <p><strong>Entrada:</strong> ${fechaEntrada} | <strong>Salida:</strong> ${fechaSalida}</p>
-                        ${estadoBadge}
-                    </div>
-                    <div class="item-acciones">
-                        <button class="btn btn-warning btn-small btn-editar-reserva" data-id="${reserva.id}">
-                            ✏️ Editar
-                        </button>
-                        <button class="btn btn-danger btn-small btn-eliminar-reserva" data-id="${reserva.id}">
-                            🗑️ Eliminar
-                        </button>
-                    </div>
-                </div>
+        // Renderizar por departamento
+        let html = '';
+
+        departamentosOrdenados.forEach(dept => {
+            const grupo = reservasPorDepartamento[dept.id];
+            const reservasDept = grupo.reservas;
+
+            // Ordenar reservas de este departamento por fecha de entrada (más reciente primero)
+            const reservasOrdenadas = [...reservasDept].sort((a, b) => 
+                new Date(b.fechaEntrada) - new Date(a.fechaEntrada)
+            );
+
+            html += `
+                <div class="reservas-departamento">
+                    <h3 class="departamento-titulo">🏢 ${dept.nombre}</h3>
             `;
-        }).join('');
+
+            if (reservasOrdenadas.length === 0) {
+                html += `
+                    <div class="empty-state-small">
+                        <p>No hay reservas para este departamento.</p>
+                    </div>
+                `;
+            } else {
+                reservasOrdenadas.forEach(reserva => {
+                    // Formatear fechas
+                    const fechaEntrada = this.formatearFecha(reserva.fechaEntrada);
+                    const fechaSalida = this.formatearFecha(reserva.fechaSalida);
+                    
+                    // Verificar si la reserva está activa, pasada o futura
+                    // Normalizar las fechas a medianoche para comparar solo días
+                    const hoy = new Date();
+                    hoy.setHours(0, 0, 0, 0);
+                    
+                    const entrada = new Date(reserva.fechaEntrada);
+                    entrada.setHours(0, 0, 0, 0);
+                    
+                    const salida = new Date(reserva.fechaSalida);
+                    salida.setHours(0, 0, 0, 0);
+                    
+                    let estadoBadge = '';
+                    if (hoy >= entrada && hoy <= salida) {
+                        estadoBadge = '<span class="badge badge-success">Activa</span>';
+                    } else if (hoy > salida) {
+                        estadoBadge = '<span class="badge badge-danger">Finalizada</span>';
+                    } else {
+                        estadoBadge = '<span class="badge badge-warning">Próxima</span>';
+                    }
+                    
+                    html += `
+                        <div class="item-lista" data-id="${reserva.id}">
+                            <div class="item-info">
+                                <h4>${reserva.huesped}</h4>
+                                <p><strong>Entrada:</strong> ${fechaEntrada} | <strong>Salida:</strong> ${fechaSalida}</p>
+                                ${estadoBadge}
+                            </div>
+                            <div class="item-acciones">
+                                <button class="btn btn-warning btn-small btn-editar-reserva" data-id="${reserva.id}">
+                                    ✏️ Editar
+                                </button>
+                                <button class="btn btn-danger btn-small btn-eliminar-reserva" data-id="${reserva.id}">
+                                    🗑️ Eliminar
+                                </button>
+                            </div>
+                        </div>
+                    `;
+                });
+            }
+
+            html += '</div>';
+        });
+
+        container.innerHTML = html;
         
         // Ocultar loading
         this.ocultarLoadingReservas();

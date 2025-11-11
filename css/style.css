@@ -426,6 +426,11 @@ textarea {
     color: white;
 }
 
+.badge-danger {
+    background: var(--danger-color);
+    color: white;
+}
+
 .item-acciones {
     display: flex;
     gap: 8px;
@@ -442,6 +447,45 @@ textarea {
     font-size: 3rem;
     margin-bottom: 15px;
     opacity: 0.5;
+}
+
+.empty-state-small {
+    text-align: center;
+    padding: 20px;
+    color: #999;
+    background: #f8f9fa;
+    border-radius: 6px;
+    margin-bottom: 15px;
+}
+
+.empty-state-small p {
+    margin: 0;
+    font-size: 0.95rem;
+}
+
+/* ========================================
+   RESERVAS POR DEPARTAMENTO
+   ======================================== */
+
+.reservas-departamento {
+    margin-bottom: 30px;
+}
+
+.departamento-titulo {
+    background: linear-gradient(135deg, var(--primary-color), #357ABD);
+    color: white !important;
+    padding: 12px 20px;
+    border-radius: 8px;
+    margin-bottom: 15px;
+    font-size: 1.2rem;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    box-shadow: 0 2px 8px rgba(74, 144, 226, 0.3);
+}
+
+.departamento-titulo * {
+    color: white !important;
 }
 
 /* ========================================
