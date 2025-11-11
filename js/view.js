@@ -748,6 +748,135 @@ const View = {
     },
 
     /**
+     * Generar HTML de un mes del calendario (usado por la función de impresión)
+     * @param {string} departamentoId
+     * @param {number} anio
+     * @param {number} mes (0-11)
+     * @returns {string} HTML del mes
+     */
+    generarCalendarioHTML(departamentoId, anio, mes) {
+        const mesesNombre = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+                             'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+
+        const primerDia = new Date(anio, mes, 1);
+        const ultimoDia = new Date(anio, mes + 1, 0);
+        const diasEnMes = ultimoDia.getDate();
+        const primerDiaSemana = primerDia.getDay();
+
+        const fechasReservadas = Model.obtenerReservasPorMes(departamentoId, anio, mes);
+
+        let html = '';
+        html += `<div class="print-mes">`;
+        html += `<h4 class="print-mes-titulo">${mesesNombre[mes]} ${anio}</h4>`;
+
+        html += '<div class="print-calendario-grid">';
+        const diasSemana = ['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'];
+        diasSemana.forEach(d => { html += `<div class="print-dia-header">${d}</div>`; });
+
+        // Días vacíos iniciales
+        for (let i = 0; i < primerDiaSemana; i++) {
+            html += `<div class="print-dia otro-mes"></div>`;
+        }
+
+        for (let dia = 1; dia <= diasEnMes; dia++) {
+            const clave = `${anio}-${mes}-${dia}`;
+            let clases = 'print-dia';
+            let label = `<span class="print-num">${dia}</span>`;
+
+            if (fechasReservadas.has(clave)) {
+                const info = fechasReservadas.get(clave);
+                clases += ' reservado';
+                if (info.tipo === 'inicio') clases += ' inicio-reserva';
+                if (info.tipo === 'fin') clases += ' fin-reserva';
+                label += `<div class="print-huesped">${info.huesped}</div>`;
+            } else {
+                // fecha actual para marcar 'hoy'
+                const ahora = new Date();
+                const hoy = new Date(ahora.getFullYear(), ahora.getMonth(), ahora.getDate());
+                const fechaActual = new Date(anio, mes, dia);
+                if (fechaActual.getTime() === hoy.getTime()) {
+                    clases += ' hoy';
+                }
+            }
+
+            html += `<div class="${clases}">${label}</div>`;
+        }
+
+        html += '</div>'; // cierre grid
+        html += '</div>'; // cierre print-mes
+
+        return html;
+    },
+
+    /**
+     * Imprimir calendario para un departamento y un rango de meses
+     * @param {string} departamentoId
+     * @param {number} startYear
+     * @param {number} startMonth (0-11)
+     * @param {number} monthsCount
+     */
+    imprimirCalendario(departamentoId, startYear, startMonth, monthsCount) {
+        if (!departamentoId) {
+            this.mostrarAlerta('Selecciona un departamento antes de imprimir', 'info');
+            return;
+        }
+
+        const departamento = Model.obtenerDepartamentoPorId(departamentoId);
+        if (!departamento) {
+            this.mostrarAlerta('Departamento no encontrado', 'error');
+            return;
+        }
+
+        // Construir HTML imprimible
+        let docHtml = `<!doctype html><html><head><meta charset="utf-8"><title>Calendario - ${departamento.nombre}</title>`;
+        // Incluir estilos (usar el mismo CSS del sitio)
+    docHtml += `<link rel="stylesheet" href="css/style.css?v=10&t=20251114">`;
+        // Añadir estilos específicos para impresión
+        docHtml += `<style>
+            body{font-family:Arial,Helvetica,sans-serif;margin:20px;color:#222}
+            .print-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
+            .print-mes{page-break-inside:avoid;margin-bottom:18px}
+            .print-mes-titulo{background:#4A90E2;color:#fff;padding:8px 12px;border-radius:6px;margin:0 0 8px}
+            .print-calendario-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:6px}
+            .print-dia-header{font-weight:700;text-align:center}
+            .print-dia{min-height:60px;border:1px solid #e1e1e1;padding:6px;font-size:0.9rem}
+            .print-num{font-weight:700;display:block;margin-bottom:6px}
+            .reservado{background:#fdecea}
+            .inicio-reserva{border:2px solid #e74c3c}
+            .fin-reserva{border:2px solid #f39c12}
+            .hoy{outline:3px solid #357ABD}
+            .print-huesped{font-size:0.85rem;color:#333;margin-top:4px}
+            @media print{ .no-print{display:none} }
+        </style>`;
+        docHtml += `</head><body>`;
+
+        docHtml += `<div class="print-header"><div><h2>Calendario: ${departamento.nombre}</h2><p>Capacidad: ${departamento.capacidad}</p></div><div class="no-print">Imprimiendo ${monthsCount} mes(es) desde ${startMonth+1}/${startYear}</div></div>`;
+
+        // Generar meses
+        let currentYear = startYear;
+        let currentMonth = startMonth;
+        for (let i = 0; i < monthsCount; i++) {
+            docHtml += this.generarCalendarioHTML(departamentoId, currentYear, currentMonth);
+
+            currentMonth++;
+            if (currentMonth > 11) { currentMonth = 0; currentYear++; }
+        }
+
+        docHtml += `<script>window.onload = function(){ setTimeout(()=>{ window.print(); }, 300); };</script>`;
+        docHtml += '</body></html>';
+
+        const win = window.open('', '_blank');
+        if (!win) {
+            this.mostrarAlerta('El navegador bloqueó la apertura de la ventana de impresión. Permite ventanas emergentes o descarga manualmente.', 'error');
+            return;
+        }
+
+        win.document.open();
+        win.document.write(docHtml);
+        win.document.close();
+    },
+
+    /**
      * Llenar el select de departamentos en el calendario
      * @param {Array} departamentos - Lista de departamentos
      */
