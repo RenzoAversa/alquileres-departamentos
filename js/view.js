@@ -830,23 +830,34 @@ const View = {
         // Construir HTML imprimible
         let docHtml = `<!doctype html><html><head><meta charset="utf-8"><title>Calendario - ${departamento.nombre}</title>`;
         // Incluir estilos (usar el mismo CSS del sitio)
-    docHtml += `<link rel="stylesheet" href="css/style.css?v=10&t=20251114">`;
-        // Añadir estilos específicos para impresión
+        docHtml += `<link rel="stylesheet" href="css/style.css?v=10&t=20251114">`;
+        // Añadir estilos específicos para impresión (siempre vertical)
         docHtml += `<style>
-            body{font-family:Arial,Helvetica,sans-serif;margin:20px;color:#222}
-            .print-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
-            .print-mes{page-break-inside:avoid;margin-bottom:18px}
-            .print-mes-titulo{background:#4A90E2;color:#fff;padding:8px 12px;border-radius:6px;margin:0 0 8px}
-            .print-calendario-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:6px}
-            .print-dia-header{font-weight:700;text-align:center}
-            .print-dia{min-height:60px;border:1px solid #e1e1e1;padding:6px;font-size:0.9rem}
-            .print-num{font-weight:700;display:block;margin-bottom:6px}
-            .reservado{background:#fdecea}
-            .inicio-reserva{border:2px solid #e74c3c}
-            .fin-reserva{border:2px solid #f39c12}
-            .hoy{outline:3px solid #357ABD}
-            .print-huesped{font-size:0.85rem;color:#333;margin-top:4px}
-            @media print{ .no-print{display:none} }
+            *{margin:0;padding:0;box-sizing:border-box}
+            body{font-family:Arial,Helvetica,sans-serif;margin:0;padding:15px;color:#222;background:white}
+            .print-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
+            .print-header h2{font-size:1.3rem;margin:0}
+            .print-header p{margin:0;font-size:0.9rem}
+            .print-mes{page-break-inside:avoid;margin-bottom:20px}
+            .print-mes:last-child{margin-bottom:0}
+            .print-mes-titulo{background:white;color:#222;padding:6px 10px;border:2px solid #4A90E2;border-radius:6px;margin:0 0 6px;font-size:1.1rem}
+            .print-calendario-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px}
+            .print-dia-header{font-weight:700;text-align:center;border-bottom:2px solid #222;padding:3px;font-size:0.85rem}
+            .print-dia{min-height:50px;border:1px solid #e1e1e1;padding:4px;font-size:0.85rem;background:white}
+            .print-dia.otro-mes{background:#fafafa;border-color:#f0f0f0}
+            .print-num{font-weight:700;display:block;margin-bottom:4px;font-size:0.9rem}
+            .reservado{background:white;border:2px solid #e74c3c}
+            .inicio-reserva{border:3px solid #e74c3c;border-left-width:6px}
+            .fin-reserva{border:3px solid #f39c12;border-right-width:6px}
+            .hoy{outline:3px solid #357ABD;background:#f0f8ff}
+            .print-huesped{font-size:0.75rem;color:#333;margin-top:3px;font-weight:600;line-height:1.2}
+            @media print{ 
+                .no-print{display:none} 
+                body{margin:0;padding:8px}
+                .print-header{margin-bottom:8px}
+                .print-mes{page-break-inside:avoid}
+            }
+            @page{margin:8mm;size:portrait}
         </style>`;
         docHtml += `</head><body>`;
 
@@ -862,7 +873,58 @@ const View = {
             if (currentMonth > 11) { currentMonth = 0; currentYear++; }
         }
 
-        docHtml += `<script>window.onload = function(){ setTimeout(()=>{ window.print(); }, 300); };</script>`;
+        // Script para imprimir y cerrar la ventana al finalizar o cancelar
+        docHtml += `<script>
+            let printDialogClosed = false;
+            
+            window.onload = function(){ 
+                setTimeout(()=>{ 
+                    window.print(); 
+                    
+                    // Detectar cuándo se cierra el diálogo de impresión
+                    window.onafterprint = function() {
+                        if (!printDialogClosed) {
+                            printDialogClosed = true;
+                            setTimeout(() => window.close(), 100);
+                        }
+                    };
+                    
+                    // Para navegadores que no soportan onafterprint, usar matchMedia
+                    if (window.matchMedia) {
+                        const mediaQueryList = window.matchMedia('print');
+                        
+                        const handleChange = (mql) => {
+                            // Cuando sale del modo de impresión
+                            if (!mql.matches && !printDialogClosed) {
+                                printDialogClosed = true;
+                                setTimeout(() => window.close(), 100);
+                            }
+                        };
+                        
+                        if (mediaQueryList.addEventListener) {
+                            mediaQueryList.addEventListener('change', handleChange);
+                        } else if (mediaQueryList.addListener) {
+                            mediaQueryList.addListener(handleChange);
+                        }
+                    }
+                    
+                    // Fallback: detectar si el usuario hace focus en la ventana (canceló)
+                    window.onfocus = function() {
+                        if (!printDialogClosed) {
+                            printDialogClosed = true;
+                            setTimeout(() => window.close(), 500);
+                        }
+                    };
+                    
+                    // Cierre de seguridad: si después de 30 segundos sigue abierta, cerrar
+                    setTimeout(() => {
+                        if (!window.closed && !printDialogClosed) {
+                            window.close();
+                        }
+                    }, 30000);
+                }, 300); 
+            };
+        </script>`;
         docHtml += '</body></html>';
 
         const win = window.open('', '_blank');
@@ -874,9 +936,7 @@ const View = {
         win.document.open();
         win.document.write(docHtml);
         win.document.close();
-    },
-
-    /**
+    },    /**
      * Llenar el select de departamentos en el calendario
      * @param {Array} departamentos - Lista de departamentos
      */

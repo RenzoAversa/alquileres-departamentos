@@ -589,42 +589,8 @@ const Controller = {
             }
 
             // Poblado e inicialización de controles de impresión
-            const selectStartMonth = document.getElementById('print-start-month');
-            const selectStartYear = document.getElementById('print-start-year');
             const selectMonthsCount = document.getElementById('print-months-count');
             const btnImprimir = document.getElementById('btn-imprimir-calendario');
-
-            if (selectStartMonth && selectStartYear) {
-                // Llenar meses
-                const meses = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
-                selectStartMonth.innerHTML = '';
-                meses.forEach((m, idx) => {
-                    const opt = document.createElement('option');
-                    opt.value = idx;
-                    opt.textContent = m;
-                    selectStartMonth.appendChild(opt);
-                });
-
-                // Llenar años (desde -1 año hasta +2 años)
-                const ahora = new Date();
-                const añoBase = ahora.getFullYear();
-                selectStartYear.innerHTML = '';
-                for (let y = añoBase - 1; y <= añoBase + 2; y++) {
-                    const opt = document.createElement('option');
-                    opt.value = y;
-                    opt.textContent = y;
-                    selectStartYear.appendChild(opt);
-                }
-
-                // Ajustar valores por defecto al mes mostrado en el calendario si existe
-                if (this.calendarioActual) {
-                    selectStartMonth.value = this.calendarioActual.mes;
-                    selectStartYear.value = this.calendarioActual.anio;
-                } else {
-                    selectStartMonth.value = ahora.getMonth();
-                    selectStartYear.value = ahora.getFullYear();
-                }
-            }
 
             if (btnImprimir) {
                 btnImprimir.addEventListener('click', () => {
@@ -635,8 +601,17 @@ const Controller = {
                         return;
                     }
 
-                    const startMonth = parseInt(selectStartMonth.value, 10);
-                    const startYear = parseInt(selectStartYear.value, 10);
+                    // Usar el mes y año actual del calendario mostrado
+                    let startMonth, startYear;
+                    if (this.calendarioActual) {
+                        startMonth = this.calendarioActual.mes;
+                        startYear = this.calendarioActual.anio;
+                    } else {
+                        const ahora = new Date();
+                        startMonth = ahora.getMonth();
+                        startYear = ahora.getFullYear();
+                    }
+
                     const monthsCount = parseInt(selectMonthsCount.value, 10) || 1;
 
                     View.imprimirCalendario(departamentoId, startYear, startMonth, monthsCount);

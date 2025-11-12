@@ -174,19 +174,9 @@
                     <div id="info-calendario" class="info-calendario"></div>
 
                     <!-- Controles de impresión -->
-                    <div class="form-group" style="display:flex;gap:8px;align-items:end;">
+                    <div class="form-group" style="display:flex;gap:8px;align-items:end;flex-wrap:wrap;">
                         <div style="display:flex;gap:6px;align-items:center;">
-                            <label for="print-start-month" style="font-size:0.85rem;">Mes</label>
-                            <select id="print-start-month"></select>
-                        </div>
-
-                        <div style="display:flex;gap:6px;align-items:center;">
-                            <label for="print-start-year" style="font-size:0.85rem;">Año</label>
-                            <select id="print-start-year"></select>
-                        </div>
-
-                        <div style="display:flex;gap:6px;align-items:center;">
-                            <label for="print-months-count" style="font-size:0.85rem;">Meses</label>
+                            <label for="print-months-count" style="font-size:0.85rem;">Cantidad de meses a imprimir:</label>
                             <select id="print-months-count">
                                 <option value="1">1</option>
                                 <option value="2">2</option>
@@ -196,7 +186,7 @@
                             </select>
                         </div>
 
-                        <button class="btn btn-primary" id="btn-imprimir-calendario">🖨️ Imprimir</button>
+                        <button class="btn btn-secondary" id="btn-imprimir-calendario" style="background:white;color:#333;border:2px solid #ddd;">🖨️ Imprimir</button>
                     </div>
                 </div>
                 
