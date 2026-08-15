@@ -45,12 +45,12 @@ sed \
   -e "s|__APP_ID__|${APP_ID}|g" \
   -e "s|__SENDER_ID__|${SENDER_ID}|g" \
   -e "s|__COLOR__|${COLOR}|g" \
-  config/client.config.example.js > public/config/client.config.js
+  config/client.config.example.js > config/client.config.js
 
 echo ""
 echo "✅ Configuración generada para: ${NOMBRE}"
 echo "   - .firebaserc                    -> proyecto ${PROJECT_ID}"
-echo "   - public/config/client.config.js -> claves + marca"
+echo "   - config/client.config.js        -> claves + marca"
 echo ""
 echo "-----------------------------------------------"
 echo "AHORA, ELEGÍ CÓMO PUBLICAR:"
