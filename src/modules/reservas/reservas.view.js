@@ -26,8 +26,8 @@ const FILTROS_PAGO = [
 ];
 
 const ORDENES = [
-  { k: 'entrada_asc', label: 'Próximo check-in' },
-  { k: 'salida_asc', label: 'Próximo check-out' },
+  { k: 'entrada_asc', label: 'Próximo ingreso' },
+  { k: 'salida_asc', label: 'Próximo egreso' },
   { k: 'entrada_desc', label: 'Más nuevas primero' },
   { k: 'huesped', label: 'Huésped (A-Z)' }
 ];
