@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Ingresar — Alquileres</title>
+  <!-- Anti-flash: aplica el tema guardado ANTES de pintar (clave igual a core/tema.js) -->
+  <script>(function(){try{if(localStorage.getItem('alquileres_tema')==='oscuro')document.documentElement.setAttribute('data-tema','oscuro');}catch(e){}})();</script>
+  <link rel="icon" type="image/svg+xml" href="favicon.svg" />
+  <link rel="stylesheet" href="assets/styles/tokens.css" />
+  <link rel="stylesheet" href="assets/styles/styles.css" />
+  <script type="importmap">
+  {
+    "imports": {
+      "firebase/app": "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js",
+      "firebase/firestore": "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js",
+      "firebase/auth": "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js"
+    }
+  }
+  </script>
+</head>
+<body class="login-body">
+  <form class="login-card" id="form-login">
+    <div class="login-logo" id="login-logo">A</div>
+    <h1 class="login-titulo" id="login-nombre">Alquileres</h1>
+    <p class="login-sub">Ingresá con tu cuenta</p>
+
+    <label class="form__campo">
+      <span>Email</span>
+      <input type="email" id="email" required autocomplete="email" />
+    </label>
+    <label class="form__campo">
+      <span>Contraseña</span>
+      <input type="password" id="password" required autocomplete="current-password" />
+    </label>
+
+    <button class="btn btn--primary btn--full" type="submit" id="btn-entrar">Entrar</button>
+    <p class="login-error" id="error" hidden></p>
+  </form>
+
+  <script type="module">
+    import { appConfig } from './src/firebase/init.js';
+    import { login, watchAuth } from './src/core/auth.js';
+
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('./sw.js', { scope: './' }).catch(() => {});
+    }
+
+    // Branding
+    document.documentElement.style.setProperty('--color-primario', appConfig.cliente.colorPrimario || '#2563eb');
+    document.getElementById('login-nombre').textContent = appConfig.cliente.nombre;
+    document.getElementById('login-logo').textContent = (appConfig.cliente.nombre || 'A').charAt(0).toUpperCase();
+
+    // Si ya hay sesión, entrar directo
+    watchAuth((user) => { if (user) location.replace('index.html'); });
+
+    const form = document.getElementById('form-login');
+    const err = document.getElementById('error');
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      err.hidden = true;
+      const btn = document.getElementById('btn-entrar');
+      btn.disabled = true; btn.textContent = 'Entrando…';
+      try {
+        await login(document.getElementById('email').value, document.getElementById('password').value);
+        location.replace('index.html');
+      } catch (ex) {
+        err.textContent = 'Email o contraseña incorrectos.';
+        err.hidden = false;
+        btn.disabled = false; btn.textContent = 'Entrar';
+      }
+    });
+  </script>
+</body>
+</html>

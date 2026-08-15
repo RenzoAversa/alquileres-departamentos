@@ -1,0 +1,201 @@
+/* ============================================================
+   Notificaciones: campana + panel lateral.
+   Usa los tokens del proyecto (tokens.css), así el modo oscuro
+   funciona solo, sin reglas duplicadas por tema.
+   ============================================================ */
+
+/* ---------- Campana en la barra superior ---------- */
+.notif-campana {
+  position: relative; flex: none;
+  width: 38px; height: 38px; display: grid; place-items: center;
+  border: 1px solid var(--borde); border-radius: 50%;
+  background: var(--superficie); color: var(--texto);
+  cursor: pointer; font-size: 1rem; line-height: 1;
+  transition: border-color .15s ease, transform .15s ease, box-shadow .15s ease;
+}
+.notif-campana:hover {
+  border-color: var(--color-primario);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-primario) 15%, transparent);
+}
+.notif-campana:active { transform: scale(.94); }
+.notif-campana:focus-visible { outline: 2px solid var(--color-primario); outline-offset: 2px; }
+.notif-campana__icono { filter: grayscale(1) opacity(.75); transition: filter .15s ease; }
+.notif-campana--con-avisos .notif-campana__icono { filter: none; }
+
+.notif-campana__cuenta {
+  position: absolute; top: -4px; right: -4px;
+  min-width: 18px; height: 18px; padding: 0 5px;
+  display: none; place-items: center;
+  border-radius: 999px; border: 2px solid var(--superficie);
+  background: var(--alerta); color: #fff;
+  font-size: .66rem; font-weight: 700; font-variant-numeric: tabular-nums;
+}
+.notif-campana--con-avisos .notif-campana__cuenta { display: grid; }
+.notif-campana__cuenta--late { animation: notif-late .5s cubic-bezier(.34, 1.56, .64, 1); }
+@keyframes notif-late {
+  0% { transform: scale(1); } 45% { transform: scale(1.35); } 100% { transform: scale(1); }
+}
+
+/* ---------- Panel lateral ---------- */
+.notif-panel__fondo {
+  position: fixed; inset: 0; z-index: 60;
+  background: rgba(15, 23, 42, .45);
+  backdrop-filter: blur(2px);
+  animation: notif-aparecer .18s ease-out;
+}
+.notif-panel {
+  position: fixed; top: 0; right: 0; z-index: 61;
+  width: min(400px, 100vw); height: 100dvh;
+  display: flex; flex-direction: column;
+  background: var(--superficie); color: var(--texto);
+  border-left: 1px solid var(--borde);
+  box-shadow: -12px 0 40px rgba(15, 23, 42, .22);
+  animation: notif-entrar .26s cubic-bezier(.22, 1, .36, 1);
+}
+.notif-panel--saliendo { animation: notif-salir .2s ease-in forwards; }
+.notif-panel__fondo--saliendo { animation: notif-desaparecer .2s ease-in forwards; }
+
+@keyframes notif-entrar { from { transform: translateX(100%); } to { transform: translateX(0); } }
+@keyframes notif-salir { to { transform: translateX(100%); } }
+@keyframes notif-aparecer { from { opacity: 0; } to { opacity: 1; } }
+@keyframes notif-desaparecer { to { opacity: 0; } }
+
+.notif-panel__cabecera {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: var(--sp-3); padding: var(--sp-4) var(--sp-4) var(--sp-3);
+  border-bottom: 1px solid var(--borde);
+}
+.notif-panel__cabecera h2 { margin: 0; font-size: 1.05rem; letter-spacing: -.01em; }
+.notif-panel__cerrar {
+  width: 32px; height: 32px; display: grid; place-items: center;
+  border: none; border-radius: 50%; cursor: pointer;
+  background: transparent; color: var(--texto-muted); font-size: 1.1rem;
+  transition: background .15s ease, color .15s ease;
+}
+.notif-panel__cerrar:hover { background: color-mix(in srgb, var(--texto) 8%, transparent); color: var(--texto); }
+
+/* Solapas */
+.notif-panel__solapas {
+  display: flex; gap: 4px; padding: var(--sp-3) var(--sp-4);
+  border-bottom: 1px solid var(--borde);
+}
+.notif-solapa {
+  flex: 1; padding: 7px 6px; cursor: pointer;
+  border: none; border-radius: var(--radio-sm);
+  background: transparent; color: var(--texto-muted);
+  font: inherit; font-size: .76rem; font-weight: 600; white-space: nowrap;
+  transition: background .15s ease, color .15s ease;
+}
+.notif-solapa:hover { background: color-mix(in srgb, var(--texto) 6%, transparent); color: var(--texto); }
+.notif-solapa.is-active {
+  background: color-mix(in srgb, var(--color-primario) 12%, transparent);
+  color: var(--color-primario);
+}
+.notif-solapa__n { opacity: .75; font-variant-numeric: tabular-nums; }
+
+.notif-panel__cuerpo { flex: 1; overflow-y: auto; padding: var(--sp-4); }
+.notif-panel__vista { display: none; }
+.notif-panel__vista.is-active { display: block; }
+.notif-lista-tabs { display: flex; flex-direction: column; gap: var(--sp-6); }
+
+/* ---------- Secciones ---------- */
+.notif-seccion { display: flex; flex-direction: column; gap: var(--sp-2); }
+.notif-seccion h4 {
+  margin: 0; font-size: .7rem; font-weight: 700;
+  text-transform: uppercase; letter-spacing: .07em; color: var(--texto-muted);
+}
+.notif-seccion__titulo--alerta { color: var(--alerta); }
+.notif-seccion__titulo--aviso { color: var(--warn); }
+.notif-lista { display: flex; flex-direction: column; gap: var(--sp-2); }
+
+.notif-vacio {
+  padding: var(--sp-6) var(--sp-4); text-align: center;
+  border: 1px dashed var(--borde); border-radius: var(--radio);
+  color: var(--texto-muted); font-size: .85rem;
+}
+.notif-vacio strong { display: block; color: var(--texto); margin-bottom: 4px; font-size: .9rem; }
+
+/* ---------- Tarjeta de aviso ---------- */
+.notif-item {
+  display: flex; flex-direction: column; gap: 6px;
+  padding: var(--sp-3); border-radius: var(--radio-sm);
+  background: var(--fondo); border: 1px solid var(--borde);
+  border-left: 3px solid var(--color-primario);
+  transition: border-color .15s ease, box-shadow .15s ease, transform .15s ease;
+}
+.notif-item:hover { box-shadow: var(--sombra); transform: translateY(-1px); }
+.notif-item--entra { border-left-color: var(--ok); }
+.notif-item--sale { border-left-color: var(--color-primario); }
+.notif-item--vencido { border-left-color: var(--alerta); }
+.notif-item--proximo { border-left-color: var(--warn); }
+
+.notif-item__fila { display: flex; align-items: center; gap: var(--sp-2); }
+.notif-item__unidad { flex: 1; min-width: 0; font-weight: 600; font-size: .88rem; }
+.notif-item__huesped { color: var(--texto-muted); font-weight: 400; }
+.notif-item__marca { flex: none; font-size: .74rem; color: var(--texto-muted); white-space: nowrap; }
+.notif-item__monto { flex: none; font-weight: 700; font-size: .88rem; color: var(--texto); font-variant-numeric: tabular-nums; }
+.notif-item__datos { display: flex; flex-wrap: wrap; gap: var(--sp-1) var(--sp-3); font-size: .76rem; color: var(--texto-muted); }
+.notif-item__datos a { color: inherit; text-decoration: none; border-bottom: 1px dotted currentColor; }
+.notif-item__datos a:hover { color: var(--color-primario); }
+.notif-item__atraso { color: var(--alerta); font-weight: 600; }
+.notif-item__aviso { color: var(--warn); font-weight: 600; }
+.notif-item__acciones { display: flex; gap: var(--sp-2); margin-top: 2px; }
+.notif-item__acciones .btn { flex: 1; }
+
+/* Avisos vistos/no vistos (preferencia local, ver core/notificaciones/vistos.js) */
+.notif-item__ojo {
+  flex: none; width: 26px; height: 26px; display: grid; place-items: center;
+  border: none; border-radius: 50%; background: transparent; cursor: pointer;
+  color: var(--texto-muted); font-size: .85rem; line-height: 1;
+  transition: background .15s ease, color .15s ease;
+}
+.notif-item__ojo:hover { background: color-mix(in srgb, var(--texto) 8%, transparent); color: var(--texto); }
+.notif-item--visto { opacity: .55; border-left-color: var(--borde); }
+.notif-item--visto:hover { opacity: .85; }
+
+/* Flechita para expandir el detalle de un ítem (fechas, canal, email, total/pagado) */
+.notif-item__toggle {
+  flex: none; width: 26px; height: 26px; display: grid; place-items: center;
+  border: none; border-radius: 50%; background: transparent; cursor: pointer;
+  color: var(--texto-muted); transition: background .15s ease, color .15s ease;
+}
+.notif-item__toggle:hover { background: color-mix(in srgb, var(--texto) 8%, transparent); color: var(--texto); }
+.notif-item__flecha { display: inline-block; transition: transform .15s; }
+.notif-item.is-abierto .notif-item__flecha { transform: rotate(180deg); }
+.notif-item__expandido {
+  display: flex; flex-direction: column; gap: 4px;
+  padding-top: 6px; margin-top: 2px; border-top: 1px dashed var(--borde);
+  font-size: .78rem; color: var(--texto-muted);
+}
+/* Sin esto, "display:flex" de arriba le gana en cascada a la regla nativa
+   "[hidden]{display:none}" (misma especificidad, esta hoja carga después),
+   y el detalle queda visible aunque el atributo hidden esté puesto. */
+.notif-item__expandido[hidden] { display: none; }
+
+/* ---------- Agrupado por fecha ---------- */
+.notif-grupos { display: flex; flex-direction: column; gap: var(--sp-4); }
+.notif-grupo__fecha {
+  font-size: .72rem; font-weight: 700; text-transform: uppercase;
+  letter-spacing: .06em; color: var(--texto-muted); margin-bottom: 6px;
+}
+
+/* ---------- Resumen de deuda ---------- */
+.notif-resumen {
+  display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3);
+  padding: var(--sp-3) var(--sp-4); margin-bottom: var(--sp-4);
+  border-radius: var(--radio); border: 1px solid var(--borde);
+  background: color-mix(in srgb, var(--color-primario) 8%, var(--superficie));
+}
+.notif-resumen__label { font-size: .72rem; text-transform: uppercase; letter-spacing: .06em; color: var(--texto-muted); }
+.notif-resumen__monto { display: block; font-size: 1.3rem; font-weight: 700; letter-spacing: -.02em; }
+.notif-resumen__detalle { font-size: .78rem; color: var(--texto-muted); text-align: right; }
+
+@media (max-width: 640px) {
+  .notif-panel { width: 100vw; border-left: none; }
+  .notif-item__acciones .btn { flex: 1 1 45%; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .notif-panel, .notif-panel__fondo, .notif-campana__cuenta--late { animation: none; }
+  .notif-item:hover { transform: none; }
+}
