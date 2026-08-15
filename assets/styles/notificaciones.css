@@ -153,6 +153,25 @@
 .notif-item--visto { opacity: .55; border-left-color: var(--borde); }
 .notif-item--visto:hover { opacity: .85; }
 
+/* Flechita para expandir el detalle de un ítem (fechas, canal, email, total/pagado) */
+.notif-item__toggle {
+  flex: none; width: 26px; height: 26px; display: grid; place-items: center;
+  border: none; border-radius: 50%; background: transparent; cursor: pointer;
+  color: var(--texto-muted); transition: background .15s ease, color .15s ease;
+}
+.notif-item__toggle:hover { background: color-mix(in srgb, var(--texto) 8%, transparent); color: var(--texto); }
+.notif-item__flecha { display: inline-block; transition: transform .15s; }
+.notif-item.is-abierto .notif-item__flecha { transform: rotate(180deg); }
+.notif-item__expandido {
+  display: flex; flex-direction: column; gap: 4px;
+  padding-top: 6px; margin-top: 2px; border-top: 1px dashed var(--borde);
+  font-size: .78rem; color: var(--texto-muted);
+}
+/* Sin esto, "display:flex" de arriba le gana en cascada a la regla nativa
+   "[hidden]{display:none}" (misma especificidad, esta hoja carga después),
+   y el detalle queda visible aunque el atributo hidden esté puesto. */
+.notif-item__expandido[hidden] { display: none; }
+
 /* ---------- Agrupado por fecha ---------- */
 .notif-grupos { display: flex; flex-direction: column; gap: var(--sp-4); }
 .notif-grupo__fecha {

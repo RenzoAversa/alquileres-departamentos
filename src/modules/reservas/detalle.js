@@ -53,6 +53,14 @@ export function abrirDetalleReserva(reserva, cuentas, onCambio) {
       }
     });
 
+    // Envío de mail: todavía no hay backend/servicio de correo conectado
+    // (la app es 100% cliente, sin servidor propio). Queda el botón para
+    // que se vea el lugar que va a ocupar, con el aviso de qué falta.
+    const btnMail = el('button', { class: 'btn btn--ghost btn--sm', type: 'button', title: 'Próximamente' }, 'Enviar factura por mail');
+    btnMail.addEventListener('click', () => {
+      toast('Próximamente. Por ahora, usá "Recibo PDF" y envialo vos.', 'info');
+    });
+
     // ---- Encabezado ----
     cuerpo.append(el('div', { class: 'detalle-head' }, [
       el('div', {}, [
@@ -60,8 +68,9 @@ export function abrirDetalleReserva(reserva, cuentas, onCambio) {
         el('div', { class: 'muted small' }, `${r.huesped?.nombre || ''} · ${fecha(r.fechaEntrada)} ${r.horaEntrada || '15:00'} → ${fecha(r.fechaSalida)} ${r.horaSalida || '10:00'}`),
         r.huesped?.email ? el('div', { class: 'muted small' }, r.huesped.email) : null
       ]),
-      el('div', { style: 'display:flex;gap:8px' }, [
+      el('div', { style: 'display:flex;gap:8px;flex-wrap:wrap' }, [
         btnRecibo,
+        btnMail,
         el('button', { class: 'btn btn--ghost btn--sm', type: 'button', onClick: cerrar }, 'Cerrar')
       ])
     ]));
@@ -102,17 +111,33 @@ export function abrirDetalleReserva(reserva, cuentas, onCambio) {
           if (monto > saldo + 0.001) { toast(`El pago no puede superar el saldo (${money(saldo)})`, 'alerta'); return; }
           btn.disabled = true; btn.textContent = 'Guardando…';
           try {
-            await reservasService.registrarPago(r, { monto, cuentaId: selCuenta.value, fecha: inFecha.value, nota: inNota.value.trim() });
-            // actualizar copia local
-            r.pagado = (Number(r.pagado) || 0) + monto;
-            r.saldo = total - r.pagado;
-            r.estadoPago = estadoPagoDe(r.pagado, total);
+            const res = await reservasService.registrarPago(r, { monto, cuentaId: selCuenta.value, fecha: inFecha.value, nota: inNota.value.trim() });
+            // actualizar copia local con lo que confirmó la transacción (no
+            // lo optimista calculado acá), por si en el medio se registró
+            // otro pago desde otra pestaña/dispositivo.
+            r.pagado = res.pagado;
+            r.saldo = res.saldo;
+            r.estadoPago = res.estadoPago;
             cambiado = true;
             toast('Pago confirmado', 'ok');
             await pintar();
           } catch (err) {
-            console.error(err); toast('No se pudo registrar el pago', 'alerta');
-            btn.disabled = false; btn.textContent = 'Confirmar pago';
+            console.error(err);
+            if (err.codigo === 'PAGO_COMPLETO' || err.codigo === 'MONTO_EXCEDE_SALDO') {
+              // El saldo real ya no es el que veíamos (otro pago se coló
+              // desde otra pestaña/dispositivo): traer la reserva fresca
+              // para reflejar el estado real, no el desactualizado.
+              toast(err.codigo === 'PAGO_COMPLETO'
+                ? 'Esta reserva ya está totalmente paga (se registró desde otro lado)'
+                : 'El pago no puede superar el saldo real de la reserva', 'alerta');
+              const fresca = await reservasService.getById(r.id);
+              if (fresca) { r.pagado = fresca.pagado; r.saldo = fresca.saldo; r.estadoPago = fresca.estadoPago; }
+              cambiado = true;
+              await pintar();
+            } else {
+              toast('No se pudo registrar el pago', 'alerta');
+              btn.disabled = false; btn.textContent = 'Confirmar pago';
+            }
           }
         });
         cuerpo.append(form);

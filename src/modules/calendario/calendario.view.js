@@ -16,7 +16,7 @@ import { cuentasService } from '../../services/cuentas.service.js';
 import { abrirDetalleReserva } from '../reservas/detalle.js';
 import { sesion } from '../../core/sesion.js';
 import { masDias, diasDe, hoyISO, diaSemana, letraDia } from '../../core/metricas.js';
-import { el, spinner, vacio, fecha, money } from '../../core/ui.js';
+import { el, spinner, vacio, fecha, money, compararPiso } from '../../core/ui.js';
 import { fechaCorta } from '../notificaciones/tabs/_comunes.js';
 
 const pad = (n) => String(n).padStart(2, '0');
@@ -32,6 +32,12 @@ export async function render(container) {
   let mes = ahora.getMonth() + 1; // 1-12
   let filtroEdificio = '';
   let filtroUnidad = '';
+  // Filtro propio de "Movimientos del mes": independiente del filtro de
+  // arriba, para poder mirar el tape chart de un edificio y a la vez
+  // revisar movimientos de otro (o de todos).
+  let filtroMovEdificio = '';
+  let filtroMovUnidad = '';
+  let movAbierta = false;
 
   // Las cuentas solo se piden si el usuario abre una reserva (ahorra lecturas).
   let cuentas = null;
@@ -69,6 +75,37 @@ export async function render(container) {
   const filtroBarra = el('div', { class: 'cal-filtro' }, [
     el('label', { class: 'form__campo' }, [el('span', {}, 'Edificio'), selEdificio]),
     el('label', { class: 'form__campo' }, [el('span', {}, 'Departamento'), selUnidad])
+  ]);
+
+  // ---- Filtro de "Movimientos del mes" (independiente del de arriba) ----
+  const selMovEdificio = el('select', {}, [
+    el('option', { value: '' }, 'Todos los complejos'),
+    ...edificios.map((ed) => el('option', { value: ed.id }, ed.nombre))
+  ]);
+  const selMovUnidad = el('select', {});
+  function refrescarOpcionesMovUnidad() {
+    const disponibles = filtroMovEdificio ? unidades.filter((u) => u.edificioId === filtroMovEdificio) : unidades;
+    selMovUnidad.innerHTML = '';
+    selMovUnidad.append(el('option', { value: '' }, 'Todos los departamentos'));
+    disponibles.forEach((u) => selMovUnidad.append(el('option', { value: u.id }, u.nombre)));
+    if (!disponibles.some((u) => u.id === filtroMovUnidad)) filtroMovUnidad = '';
+    selMovUnidad.value = filtroMovUnidad;
+  }
+  refrescarOpcionesMovUnidad();
+  // pintar() reconstruye toda la pantalla (cont.innerHTML = ''), lo que por
+  // default manda el scroll al inicio de la página. Acá "Movimientos del
+  // mes" vive más abajo, así que guardamos y restauramos el scroll para que
+  // no salte al elegir un filtro (a diferencia del filtro de arriba, donde
+  // sí tiene sentido volver a ver la grilla completa desde el principio).
+  const pintarSinMoverScroll = () => {
+    const y = window.scrollY;
+    pintar().then(() => requestAnimationFrame(() => window.scrollTo(0, y)));
+  };
+  selMovEdificio.addEventListener('change', () => { filtroMovEdificio = selMovEdificio.value; refrescarOpcionesMovUnidad(); pintarSinMoverScroll(); });
+  selMovUnidad.addEventListener('change', () => { filtroMovUnidad = selMovUnidad.value; pintarSinMoverScroll(); });
+  const filtroMovBarra = el('div', { class: 'cal-filtro' }, [
+    el('label', { class: 'form__campo' }, [el('span', {}, 'Complejo'), selMovEdificio]),
+    el('label', { class: 'form__campo' }, [el('span', {}, 'Departamento'), selMovUnidad])
   ]);
 
   // Estado de pago, tolerante a reservas viejas sin el campo guardado.
@@ -147,9 +184,21 @@ export async function render(container) {
     const primerDia = `${anio}-${mm}-01`;
     const ultimoDia = `${anio}-${mm}-${pad(diasEnMes)}`;
 
+    // Orden: por edificio/complejo/hotel (nombre), después por piso dentro
+    // de cada uno; las unidades sueltas (sin edificio) van todas al final.
     const unidadesFiltradas = unidades
       .filter((u) => !filtroEdificio || u.edificioId === filtroEdificio)
-      .filter((u) => !filtroUnidad || u.id === filtroUnidad);
+      .filter((u) => !filtroUnidad || u.id === filtroUnidad)
+      .sort((a, b) => {
+        const edA = edificios.find((e) => e.id === a.edificioId);
+        const edB = edificios.find((e) => e.id === b.edificioId);
+        if (!edA && !edB) return (a.nombre || '').localeCompare(b.nombre || '', 'es');
+        if (!edA) return 1;
+        if (!edB) return -1;
+        const cmpEd = (edA.nombre || '').localeCompare(edB.nombre || '', 'es');
+        if (cmpEd !== 0) return cmpEd;
+        return compararPiso((a.piso || '').trim(), (b.piso || '').trim());
+      });
 
     // Reservas que solapan el mes (acotado + filtro cliente)
     const reservas = (await reservasService.buscar([['fechaSalida', '>=', primerDia]]))
@@ -242,10 +291,11 @@ export async function render(container) {
         }
       }
 
+      const nombreEdU = nombreEd(u.edificioId);
       const etiqueta = el('th', { class: 'cal-unidad', scope: 'row' }, [
         el('div', { class: 'cal-unidad__nombre' }, u.nombre),
-        el('div', { class: 'cal-unidad__ed' }, nombreEd(u.edificioId) || 'Sin edificio')
-      ]);
+        nombreEdU ? el('div', { class: 'cal-unidad__ed' }, nombreEdU) : null
+      ].filter(Boolean));
       return el('tr', {}, [etiqueta, ...celdas]);
     });
 
@@ -264,9 +314,15 @@ export async function render(container) {
       el('p', { class: 'cal-pista' }, 'Tocá una estadía para ver el detalle de la reserva.')
     ]));
 
-    // ---- Movimientos del mes: entradas y salidas, agrupadas por día ----
-    
-    const reservasDelFiltro = reservas.filter((r) => unidadesFiltradas.some((u) => u.id === r.unidadId));
+    // ---- Movimientos del mes: entradas y salidas, agrupadas por día.
+    // Plegada por default, con su propio filtro de complejo/departamento
+    // (independiente del filtro del tape chart de arriba). Reusa `reservas`,
+    // ya traído por la única consulta de este mes — no dispara ninguna
+    // consulta nueva a Firestore.
+    const unidadesParaMov = unidades
+      .filter((u) => !filtroMovEdificio || u.edificioId === filtroMovEdificio)
+      .filter((u) => !filtroMovUnidad || u.id === filtroMovUnidad);
+    const reservasDelFiltro = reservas.filter((r) => unidadesParaMov.some((u) => u.id === r.unidadId));
     const movimientosMes = [];
     reservasDelFiltro.forEach((r) => {
       if (r.fechaEntrada >= primerDia && r.fechaEntrada <= ultimoDia) movimientosMes.push({ r, tipo: 'entra', dia: r.fechaEntrada });
@@ -274,9 +330,23 @@ export async function render(container) {
     });
     movimientosMes.sort((a, b) => a.dia.localeCompare(b.dia));
 
-    const seccion = el('div', { class: 'card' }, [el('h3', {}, 'Movimientos del mes')]);
+    const cuerpoMov = el('div', {});
+    cuerpoMov.hidden = !movAbierta;
+    const seccion = el('div', { class: `card card-plegable${movAbierta ? ' is-abierto' : ''}` });
+    const tituloMov = el('button', { type: 'button', class: 'card-plegable__titulo' }, [
+      'Movimientos del mes',
+      el('span', { class: 'reserva-grupo__flecha' }, '▾')
+    ]);
+    tituloMov.addEventListener('click', () => {
+      movAbierta = !movAbierta;
+      cuerpoMov.hidden = !movAbierta;
+      seccion.classList.toggle('is-abierto', movAbierta);
+    });
+    seccion.append(el('div', { class: 'finanzas-head' }, [tituloMov]), cuerpoMov);
+
+    cuerpoMov.append(filtroMovBarra);
     if (!movimientosMes.length) {
-      seccion.append(el('p', { class: 'muted' }, 'No hay entradas ni salidas en este mes.'));
+      cuerpoMov.append(el('p', { class: 'muted' }, 'No hay entradas ni salidas en este mes.'));
     } else {
       // Mes lejano del actual: las etiquetas relativas ("Entra en 3 días") pierden sentido.
       const distanciaAlMes = hoy < primerDia ? diasDe(hoy, primerDia) - 1
@@ -290,7 +360,7 @@ export async function render(container) {
         porDia.get(m.dia).push(m);
       });
 
-      seccion.append(el('div', { class: 'notif-grupos' },
+      cuerpoMov.append(el('div', { class: 'notif-grupos' },
         [...porDia.entries()].map(([dia, items]) => el('div', {}, [
           el('div', { class: 'notif-grupo__fecha' }, fechaCorta(dia)),
           el('div', { class: 'notif-lista' }, items.map((m) => itemMovimientoMes(m, verDinero, esCercano)))
@@ -298,7 +368,6 @@ export async function render(container) {
       ));
     }
     cont.append(seccion);
-    
   }
 
   // Etiqueta relativa de ESTE movimiento puntual (entrada o salida), no del

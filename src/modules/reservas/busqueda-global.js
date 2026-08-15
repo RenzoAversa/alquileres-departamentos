@@ -29,7 +29,7 @@ export function montarBusquedaGlobal(contenedor) {
   let cuentasCache = null;
   let timer = null;
 
-  const input = el('input', { type: 'search', class: 'busqueda-input', placeholder: 'Buscar huésped o reserva…' });
+  const input = el('input', { type: 'search', class: 'busqueda-input', placeholder: 'Buscar huésped' });
   const resultados = el('div', { class: 'busqueda-resultados' });
   resultados.hidden = true;
   const wrap = el('div', { class: 'busqueda-global' }, [input, resultados]);

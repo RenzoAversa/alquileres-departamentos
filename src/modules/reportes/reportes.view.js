@@ -14,6 +14,8 @@ import { reservasService } from '../../services/reservas.service.js';
 import { el, toast, spinner, vacio, money, fecha, botonRecargar, crearPaginado } from '../../core/ui.js';
 import { hoyISO, masDias, diasDe, metricasPeriodo, rentabilidadPorUnidad, ultimosMeses } from '../../core/metricas.js';
 import { graficoLineas, graficoBarrasApiladas } from '../../core/graficos.js';
+import { exportarTendencias } from '../../core/excel.js';
+import { generarTendenciasPDF } from '../../core/pdf.js';
 import { sesion } from '../../core/sesion.js';
 
 export async function render(container) {
@@ -87,11 +89,12 @@ export async function render(container) {
     });
 
     function renderFila(r) {
+      const nombreEdR = nombreEd(r.unidad.edificioId);
       return el('div', { class: 'lista__item' }, [
         el('div', {}, [
           el('strong', {}, r.unidad.nombre),
-          el('span', { class: 'muted small' }, ` · ${nombreEd(r.unidad.edificioId) || 'Sin edificio'}`)
-        ]),
+          nombreEdR ? el('span', { class: 'muted small' }, ` · ${nombreEdR}`) : null
+        ].filter(Boolean)),
         el('div', { style: 'display:flex;gap:8px;flex-wrap:wrap;align-items:center' }, [
           el('span', { class: 'badge badge--ok' }, `+${money(r.ingresos)}`),
           el('span', { class: 'badge badge--alerta' }, `−${money(r.egresos)}`),
@@ -117,10 +120,23 @@ export async function render(container) {
   function pintarTendencias() {
     contTend.innerHTML = '';
     let cantMeses = 6;
+    let datosActuales = [];
 
+    const btnExportar = el('button', { class: 'btn btn--ghost btn--sm', type: 'button' }, 'Exportar a Excel');
+    btnExportar.addEventListener('click', async () => {
+      btnExportar.disabled = true; btnExportar.textContent = 'Generando…';
+      await exportarTendencias(datosActuales, `tendencias_${cantMeses}m_${hoyISO()}.xlsx`);
+      btnExportar.disabled = false; btnExportar.textContent = 'Exportar a Excel';
+    });
+    const btnExportarPDF = el('button', { class: 'btn btn--ghost btn--sm', type: 'button' }, 'Exportar a PDF');
+    btnExportarPDF.addEventListener('click', async () => {
+      btnExportarPDF.disabled = true; btnExportarPDF.textContent = 'Generando…';
+      await generarTendenciasPDF(datosActuales, { cantMeses, nombreArchivo: `tendencias_${cantMeses}m_${hoyISO()}.pdf` });
+      btnExportarPDF.disabled = false; btnExportarPDF.textContent = 'Exportar a PDF';
+    });
     const header = el('div', { class: 'finanzas-head' }, [
       el('h3', {}, 'Tendencias mensuales'),
-      botonRecargar(() => cargar())
+      el('div', { style: 'display:flex;gap:8px' }, [btnExportar, btnExportarPDF, botonRecargar(() => cargar())])
     ]);
     const chips = el('div', { class: 'periodo-chips' });
     function pintarChips() {
@@ -167,6 +183,7 @@ export async function render(container) {
 
       const activas = unidades.filter((u) => u.estado !== 'inactivo').length;
       const datos = meses.map((m) => ({ ...m, ...metricasPeriodo(movimientos, reservas, activas, m.desde, m.hasta) }));
+      datosActuales = datos;
 
       const maxIngreso = Math.max(1, ...datos.map((d) => d.ingresos));
       graficoIngresos.innerHTML = '';

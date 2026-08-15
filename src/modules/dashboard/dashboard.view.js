@@ -10,7 +10,8 @@ import { movimientosService } from '../../services/movimientos.service.js';
 import { cuentasService } from '../../services/cuentas.service.js';
 import { el, spinner, money, fecha, toast } from '../../core/ui.js';
 import { hoyISO, masDias, diasDe, periodoAnterior, metricasPeriodo, metricasOcupacion, variacion } from '../../core/metricas.js';
-import { exportarReporte } from '../../core/excel.js';
+import { exportarReporte, exportarGraficosTorta } from '../../core/excel.js';
+import { generarGraficosTortaPDF } from '../../core/pdf.js';
 import { graficoTorta } from '../../core/graficos.js';
 import { sesion } from '../../core/sesion.js';
 
@@ -75,8 +76,8 @@ export async function render(container) {
     el('div', { class: 'kpi-grid' }, [
       kpi(`${ocupHoyPct}%`, 'Ocupación'),
       kpi(String(activas.length - ocupadasHoy), 'Libres', null, 'kpi--ok'),
-      kpi(String(checkinsHoy), 'Check-in'),
-      kpi(String(checkoutsHoy), 'Check-out')
+      kpi(String(checkinsHoy), 'Ingreso de inquilinos'),
+      kpi(String(checkoutsHoy), 'Egreso de inquilinos')
     ])
   ]));
 
@@ -97,17 +98,36 @@ export async function render(container) {
 
   // ---- Ocupación por departamento (torta, visible para todos los roles) ----
   contOcuUnidad.innerHTML = '';
+  let ocupacionPorUnidad = [];
   {
     const desdeOcu = masDias(hoy, -6);
-    const ocupacionPorUnidad = activas
+    ocupacionPorUnidad = activas
       .map((u) => {
         const propias = reservasRecientes.filter((r) => r.unidadId === u.id);
         const m = metricasOcupacion(propias, 1, desdeOcu, hoy);
         return { label: u.nombre, valor: Math.round(m.ocupacion) };
       })
       .filter((d) => d.valor > 0);
+    const headerOcu = el('div', { class: 'comp-header' }, [el('h3', {}, 'Ocupación por departamento · últimos 7 días')]);
+    const hojasGraficos = () => [
+      { nombre: 'Ocupación por departamento', items: ocupacionPorUnidad, formatoValor: (n) => `${n}%` },
+      ...(verDinero && datosCuentaExport.length ? [{ nombre: 'Ingresos por cuenta', items: datosCuentaExport, esMoneda: true, formatoValor: money }] : [])
+    ];
+    const btnExportarGraficos = el('button', { class: 'btn btn--ghost btn--sm', type: 'button' }, 'Exportar a Excel');
+    btnExportarGraficos.addEventListener('click', async () => {
+      btnExportarGraficos.disabled = true; btnExportarGraficos.textContent = 'Generando…';
+      await exportarGraficosTorta(hojasGraficos(), `graficos_panel_${hoy}.xlsx`);
+      btnExportarGraficos.disabled = false; btnExportarGraficos.textContent = 'Exportar a Excel';
+    });
+    const btnExportarGraficosPDF = el('button', { class: 'btn btn--ghost btn--sm', type: 'button' }, 'Exportar a PDF');
+    btnExportarGraficosPDF.addEventListener('click', async () => {
+      btnExportarGraficosPDF.disabled = true; btnExportarGraficosPDF.textContent = 'Generando…';
+      await generarGraficosTortaPDF(hojasGraficos(), `graficos_panel_${hoy}.pdf`);
+      btnExportarGraficosPDF.disabled = false; btnExportarGraficosPDF.textContent = 'Exportar a PDF';
+    });
+    headerOcu.append(btnExportarGraficos, btnExportarGraficosPDF);
     contOcuUnidad.append(el('div', { class: 'card' }, [
-      el('h3', {}, 'Ocupación por departamento · últimos 7 días'),
+      headerOcu,
       graficoTorta(ocupacionPorUnidad, { formatoValor: (n) => `${n}%`, titulo: 'Ocupación por departamento' })
     ]));
   }
@@ -118,6 +138,7 @@ export async function render(container) {
   // El filtro por fecha es de un solo campo (sin combinar con otra
   // igualdad) para no requerir un índice compuesto en Firestore.
   contCanal.innerHTML = '';
+  let datosCuentaExport = [];
   if (verDinero) {
     const desdeIngresos = masDias(hoy, -6);
     const movsPeriodo = await movimientosService.buscar([
@@ -130,10 +151,10 @@ export async function render(container) {
       porCuenta[id] = (porCuenta[id] || 0) + (Number(m.monto) || 0);
     });
     const nombreCuenta = (id) => cuentas.find((c) => c.id === id)?.nombre || 'Sin cuenta';
-    const datosCuenta = Object.entries(porCuenta).map(([id, valor]) => ({ label: nombreCuenta(id), valor }));
+    datosCuentaExport = Object.entries(porCuenta).map(([id, valor]) => ({ label: nombreCuenta(id), valor }));
     contCanal.append(el('div', { class: 'card' }, [
       el('h3', {}, 'Ingresos por cuenta'),
-      graficoTorta(datosCuenta, { formatoValor: (n) => money(n), titulo: 'Ingresos por cuenta · últimos 7 días' })
+      graficoTorta(datosCuentaExport, { formatoValor: (n) => money(n), titulo: 'Ingresos por cuenta · últimos 7 días' })
     ]));
   }
 
@@ -212,7 +233,6 @@ export async function render(container) {
     }
     g.append(
       kpi(`${Math.round(act.ocupacion)}%`, 'Ocupación', chipVariacion(act.ocupacion, ant.ocupacion, true)),
-      kpi(String(act.nochesVendidas), 'Noches vendidas', chipVariacion(act.nochesVendidas, ant.nochesVendidas, true)),
       kpi(String(act.reservas), 'Reservas', chipVariacion(act.reservas, ant.reservas, true))
     );
   }

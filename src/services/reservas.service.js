@@ -8,7 +8,7 @@
 //   3) el estado de pago de la reserva (pagado / saldo / estadoPago)
 // ============================================================
 import {
-  collection, doc, writeBatch, increment, serverTimestamp, updateDoc
+  collection, doc, writeBatch, increment, serverTimestamp, updateDoc, runTransaction
 } from 'firebase/firestore';
 import { db } from '../firebase/init.js';
 import { BaseService } from './base.service.js';
@@ -82,42 +82,71 @@ class ReservasService extends BaseService {
 
   // Registrar un pago: crea el ingreso, suma al saldo de la cuenta y
   // actualiza el estado de pago de la reserva. Todo atómico.
+  // Usa una transacción (en vez de un writeBatch directo) porque acá SÍ
+  // importa evitar la carrera de 2 pestañas/dispositivos pagando la misma
+  // reserva al mismo tiempo: la transacción relee el documento fresco y
+  // rechaza el pago si, para cuando se resuelve, la reserva ya está
+  // totalmente paga o el monto ya no entra en el saldo real. Cuesta 1
+  // lectura extra por pago (aceptable: los pagos no son una operación
+  // frecuente).
   async registrarPago(reserva, { monto, cuentaId, fecha, nota = '' }) {
     const m = Number(monto) || 0;
-    const total = Number(reserva.precioTotal) || 0;
-    const nuevoPagado = (Number(reserva.pagado) || 0) + m;
-
-    const batch = writeBatch(db);
-
-    // 1) Movimiento (ingreso vinculado a la reserva)
+    const reservaRef = doc(db, 'reservas', reserva.id);
     const movRef = doc(collection(db, 'movimientos'));
-    batch.set(movRef, {
-      tipo: 'ingreso',
-      categoria: 'ingreso_reserva',
-      monto: m,
-      moneda: reserva.moneda || 'ARS',
-      fecha,
-      cuentaId,
-      reservaId: reserva.id,
-      unidadId: reserva.unidadId || null,
-      descripcion: `Pago reserva ${reserva.unidadNombre || ''} — ${reserva.huesped?.nombre || ''}`.trim(),
-      nota,
-      creadoEn: serverTimestamp()
+    let resultado;
+
+    await runTransaction(db, async (tx) => {
+      const snap = await tx.get(reservaRef);
+      if (!snap.exists()) throw new Error('La reserva ya no existe.');
+      const actual = snap.data();
+      const total = Number(actual.precioTotal) || 0;
+      const pagadoActual = Number(actual.pagado) || 0;
+      const saldoActual = total - pagadoActual;
+
+      if (saldoActual <= 0) {
+        const err = new Error('Esta reserva ya está totalmente paga.');
+        err.codigo = 'PAGO_COMPLETO';
+        throw err;
+      }
+      if (m > saldoActual + 0.001) {
+        const err = new Error(`El pago no puede superar el saldo real (${saldoActual}).`);
+        err.codigo = 'MONTO_EXCEDE_SALDO';
+        throw err;
+      }
+
+      const nuevoPagado = pagadoActual + m;
+
+      // 1) Movimiento (ingreso vinculado a la reserva)
+      tx.set(movRef, {
+        tipo: 'ingreso',
+        categoria: 'ingreso_reserva',
+        monto: m,
+        moneda: reserva.moneda || 'ARS',
+        fecha,
+        cuentaId,
+        reservaId: reserva.id,
+        unidadId: reserva.unidadId || null,
+        descripcion: `Pago reserva ${reserva.unidadNombre || ''} — ${reserva.huesped?.nombre || ''}`.trim(),
+        nota,
+        creadoEn: serverTimestamp()
+      });
+
+      // 2) Saldo de la cuenta
+      tx.update(doc(db, 'cuentas', cuentaId), { saldo: increment(m) });
+
+      // 3) Estado de pago de la reserva
+      const saldoNuevo = total - nuevoPagado;
+      const estadoPago = estadoPagoDe(nuevoPagado, total);
+      tx.update(reservaRef, {
+        pagado: nuevoPagado,
+        saldo: saldoNuevo,
+        estadoPago,
+        actualizadoEn: serverTimestamp()
+      });
+      resultado = { pagado: nuevoPagado, saldo: saldoNuevo, estadoPago, total };
     });
 
-    // 2) Saldo de la cuenta
-    batch.update(doc(db, 'cuentas', cuentaId), { saldo: increment(m) });
-
-    // 3) Estado de pago de la reserva
-    batch.update(doc(db, 'reservas', reserva.id), {
-      pagado: nuevoPagado,
-      saldo: total - nuevoPagado,
-      estadoPago: estadoPagoDe(nuevoPagado, total),
-      actualizadoEn: serverTimestamp()
-    });
-
-    await batch.commit();
-    return { id: movRef.id, monto: m, cuentaId, fecha };
+    return { id: movRef.id, monto: m, cuentaId, fecha, ...resultado };
   }
 
   // Anular un pago (revierte todo)

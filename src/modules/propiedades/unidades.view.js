@@ -1,13 +1,56 @@
-// CRUD de unidades (departamentos). Pueden pertenecer a un edificio o ser sueltas.
+// CRUD de unidades (departamentos). Pueden pertenecer a un edificio (con piso)
+// o ser sueltas. El listado se agrupa por edificio/complejo/hotel y, dentro
+// de cada uno, por piso; los sueltos van en un grupo aparte al final.
 import { unidadesService } from '../../services/unidades.service.js';
 import { edificiosService } from '../../services/edificios.service.js';
 import { reservasService } from '../../services/reservas.service.js';
-import { el, toast, confirmar, money, abrirModal, boton, botonRecargar, crearPaginado, miniatura, campo, validarFormulario } from '../../core/ui.js';
+import { el, toast, confirmar, money, abrirModal, boton, botonRecargar, crearPaginado, miniatura, campo, validarFormulario, compararPiso } from '../../core/ui.js';
 import { crearSelectorUbicacion } from '../mapa/picker.js';
 import { appConfig } from '../../firebase/init.js';
 
 const OPCION_SIN_EDIFICIO = '__sin_edificio__';
 const MOSTRAR_FOTOS = !!appConfig.features.fotos;
+const SIN_PISO = '__sin_piso__';
+const TIPO_LABEL = { edificio: 'Edificio', hotel: 'Hotel', complejo: 'Complejo' };
+
+// Agrupa por edificio (con su tipo) y, dentro, por piso. Las sueltas quedan
+// en un grupo aparte al final, sin sub-agrupar por piso.
+function agruparUnidades(unidades, edificios) {
+  const porEdificio = new Map(); // edificioId -> { ed, unidades[] }
+  const sueltas = [];
+  unidades.forEach((u) => {
+    if (!u.edificioId) { sueltas.push(u); return; }
+    if (!porEdificio.has(u.edificioId)) {
+      const ed = edificios.find((e) => e.id === u.edificioId);
+      porEdificio.set(u.edificioId, { ed, unidades: [] });
+    }
+    porEdificio.get(u.edificioId).unidades.push(u);
+  });
+
+  const gruposEdificio = [...porEdificio.values()]
+    .sort((a, b) => (a.ed?.nombre || '').localeCompare(b.ed?.nombre || '', 'es'))
+    .map(({ ed, unidades: us }) => {
+      const porPiso = new Map();
+      us.forEach((u) => {
+        const key = (u.piso || '').trim() || SIN_PISO;
+        if (!porPiso.has(key)) porPiso.set(key, { key, titulo: key === SIN_PISO ? 'Sin piso asignado' : `Piso ${key}`, unidades: [] });
+        porPiso.get(key).unidades.push(u);
+      });
+      const pisos = [...porPiso.values()].sort((a, b) => {
+        if (a.key === SIN_PISO) return 1;
+        if (b.key === SIN_PISO) return -1;
+        return compararPiso(a.key, b.key);
+      });
+      const tipoLabel = TIPO_LABEL[ed?.tipo] || TIPO_LABEL.edificio;
+      return { key: `ed:${ed?.id}`, titulo: ed?.nombre || 'Edificio', subtitulo: tipoLabel, pisos, cantidad: us.length };
+    });
+
+  const grupoSueltas = sueltas.length
+    ? [{ key: 'sueltas', titulo: 'Departamentos', subtitulo: null, pisos: null, unidades: sueltas, cantidad: sueltas.length }]
+    : [];
+
+  return [...gruposEdificio, ...grupoSueltas];
+}
 
 export async function render(container) {
   const edificios = await edificiosService.getAll();
@@ -26,21 +69,23 @@ export async function render(container) {
   seccion.append(listaCont);
   container.append(seccion);
 
+  const gruposAbiertos = new Set();
+  const pisosAbiertos = new Set();
+
   const paginado = crearPaginado({
     contenedor: listaCont,
     porPagina: 20,
     mensajeVacio: 'Todavía no cargaste ningún departamento.',
-    renderItem: (u) => renderFila(u)
+    renderItem: (grupo) => renderGrupoEdificio(grupo)
   });
 
   function renderFila(u) {
-    const ed = edificios.find((x) => x.id === u.edificioId);
     return el('div', { class: 'lista__item' }, [
       el('div', { class: 'lista__item-info' }, [
         MOSTRAR_FOTOS ? miniatura(u.foto, u.nombre) : null,
         el('div', {}, [
           el('strong', {}, u.nombre),
-          el('span', { class: 'muted' }, ` · ${ed ? ed.nombre : 'Sin edificio'} · ${u.capacidad} pers.`),
+          el('span', { class: 'muted' }, ` · ${u.capacidad} pers.`),
           el('div', { class: 'muted small' }, `${money(u.precioNoche)} / noche`)
         ])
       ]),
@@ -65,9 +110,64 @@ export async function render(container) {
     ]);
   }
 
+  // Sub-grupo por piso, dentro de un edificio. Su clave de "abierto" incluye
+  // la del edificio para no chocar entre pisos del mismo número en edificios distintos.
+  function renderGrupoPiso(edificioKey, piso) {
+    const key = `${edificioKey}::${piso.key}`;
+    const abierto = pisosAbiertos.has(key);
+    const body = el('div', { class: 'piso-grupo__body' }, piso.unidades.map((u) => renderFila(u)));
+    body.hidden = !abierto;
+    const grupoEl = el('div', { class: `piso-grupo ${abierto ? 'is-abierto' : ''}` }, [
+      el('button', {
+        class: 'piso-grupo__header', type: 'button',
+        onClick: () => {
+          body.hidden = !body.hidden;
+          grupoEl.classList.toggle('is-abierto', !body.hidden);
+          if (body.hidden) pisosAbiertos.delete(key); else pisosAbiertos.add(key);
+        }
+      }, [
+        el('span', {}, piso.titulo),
+        el('span', { class: 'badge badge--info' }, `${piso.unidades.length}`),
+        el('span', { class: 'reserva-grupo__flecha' }, '▾')
+      ]),
+      body
+    ]);
+    return grupoEl;
+  }
+
+  function renderGrupoEdificio(grupo) {
+    const abierto = gruposAbiertos.has(grupo.key);
+    // Los pisos "reales" van en su propio sub-grupo plegable; las unidades
+    // sin piso asignado se listan directo (sin envoltorio "Sin piso asignado").
+    const body = el('div', { class: 'reserva-grupo__body' },
+      grupo.pisos
+        ? grupo.pisos.flatMap((p) => (p.key === SIN_PISO ? p.unidades.map((u) => renderFila(u)) : [renderGrupoPiso(grupo.key, p)]))
+        : grupo.unidades.map((u) => renderFila(u)));
+    body.hidden = !abierto;
+    const grupoEl = el('div', { class: `reserva-grupo ${abierto ? 'is-abierto' : ''}` }, [
+      el('button', {
+        class: 'reserva-grupo__header', type: 'button',
+        onClick: () => {
+          body.hidden = !body.hidden;
+          grupoEl.classList.toggle('is-abierto', !body.hidden);
+          if (body.hidden) gruposAbiertos.delete(grupo.key); else gruposAbiertos.add(grupo.key);
+        }
+      }, [
+        el('span', { class: 'reserva-grupo__titulo' }, [
+          grupo.titulo,
+          grupo.subtitulo ? el('span', { class: 'muted small', style: 'font-weight:400;margin-left:6px' }, grupo.subtitulo) : null
+        ].filter(Boolean)),
+        el('span', { class: 'badge badge--info' }, `${grupo.cantidad} depto(s)`),
+        el('span', { class: 'reserva-grupo__flecha' }, '▾')
+      ]),
+      body
+    ]);
+    return grupoEl;
+  }
+
   async function cargarLista() {
-    const unidades = await unidadesService.getAll();
-    paginado.setItems(unidades);
+    const [unidades, edificiosFrescos] = await Promise.all([unidadesService.getAll(), edificiosService.getAll()]);
+    paginado.setItems(agruparUnidades(unidades, edificiosFrescos));
   }
   cargarLista();
 }
@@ -91,6 +191,7 @@ function abrirAltaUnidad(edificios, onGuardar) {
   });
 
   const inNombre = el('input', { placeholder: 'Ej: Depto 3B' });
+  const inPiso = el('input', { placeholder: 'Ej: 1, PB, Torre A - 3 (opcional)' });
   const inCapacidad = el('input', { type: 'number', min: '1', placeholder: '4' });
   const inAmbientes = el('input', { type: 'number', min: '1', placeholder: '2' });
   const inPrecio = el('input', { type: 'number', min: '0', placeholder: '25000' });
@@ -103,6 +204,7 @@ function abrirAltaUnidad(edificios, onGuardar) {
     el('h3', { style: 'margin:0 0 8px' }, 'Nuevo departamento'),
     campo('Nombre', inNombre, { requerido: true }),
     campo('Edificio', selEdificio, { requerido: true }),
+    campo('Piso', inPiso),
     fila([campo('Capacidad', inCapacidad, { requerido: true }), campo('Ambientes', inAmbientes)]),
     campo('Precio por noche', inPrecio, { requerido: true }),
     campo('Descripción', inDescripcion),
@@ -137,6 +239,7 @@ function abrirAltaUnidad(edificios, onGuardar) {
       await unidadesService.create({
         nombre: inNombre.value.trim(),
         edificioId: selEdificio.value === OPCION_SIN_EDIFICIO ? null : selEdificio.value,
+        piso: inPiso.value.trim() || null,
         capacidad: parseInt(inCapacidad.value) || 1,
         ambientes: parseInt(inAmbientes.value) || null,
         precioNoche: parseFloat(inPrecio.value) || 0,
@@ -163,6 +266,7 @@ function abrirEdicionUnidad(u, edificios, onGuardar) {
     el('option', { value: OPCION_SIN_EDIFICIO, selected: (!u.edificioId) || undefined }, 'Sin edificio'),
     ...edificios.map((ed) => el('option', { value: ed.id, selected: (ed.id === u.edificioId) || undefined }, ed.nombre))
   ]);
+  const inPiso = el('input', { value: u.piso || '', placeholder: 'Ej: 1, PB, Torre A - 3 (opcional)' });
   const inCapacidad = el('input', { type: 'number', min: '1', value: u.capacidad || 1 });
   const inAmbientes = el('input', { type: 'number', min: '1', value: u.ambientes || '' });
   const inPrecio = el('input', { type: 'number', min: '0', value: u.precioNoche || 0 });
@@ -177,6 +281,7 @@ function abrirEdicionUnidad(u, edificios, onGuardar) {
     el('h3', { style: 'margin:0 0 8px' }, 'Editar departamento'),
     campo('Nombre', inNombre, { requerido: true }),
     campo('Edificio', selEdificio, { requerido: true }),
+    campo('Piso', inPiso),
     fila([campo('Capacidad', inCapacidad, { requerido: true }), campo('Ambientes', inAmbientes)]),
     campo('Precio por noche', inPrecio, { requerido: true }),
     campo('Descripción', inDescripcion),
@@ -211,6 +316,7 @@ function abrirEdicionUnidad(u, edificios, onGuardar) {
       await unidadesService.update(u.id, {
         nombre: inNombre.value.trim(),
         edificioId: selEdificio.value === OPCION_SIN_EDIFICIO ? null : selEdificio.value,
+        piso: inPiso.value.trim() || null,
         capacidad: parseInt(inCapacidad.value) || 1,
         ambientes: parseInt(inAmbientes.value) || null,
         precioNoche: parseFloat(inPrecio.value) || 0,
@@ -233,4 +339,3 @@ function ubicacionValida(ubic) {
   return typeof ubic?.lat === 'number' && !Number.isNaN(ubic.lat) && typeof ubic?.lng === 'number' && !Number.isNaN(ubic.lng);
 }
 function fila(campos) { return el('div', { class: 'form__fila' }, campos); }
-

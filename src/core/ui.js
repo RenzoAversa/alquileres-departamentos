@@ -335,6 +335,15 @@ export function noches(entradaISO, salidaISO) {
   return Math.max(0, Math.round(ms / 86400000));
 }
 
+// Compara "pisos" en texto libre (usado en Departamentos y Calendario): si
+// ambos son puramente numéricos, orden numérico; si no, alfabético con
+// soporte numérico embebido (ej. "Torre A - 3" antes que "Torre A - 10").
+export function compararPiso(a, b) {
+  const na = parseFloat(a), nb = parseFloat(b);
+  if (!isNaN(na) && !isNaN(nb) && String(na) === a.trim() && String(nb) === b.trim()) return na - nb;
+  return a.localeCompare(b, 'es', { numeric: true, sensitivity: 'base' });
+}
+
 // Miniatura de foto (URL externa, sin Storage). Si no hay URL o la imagen
 // no carga, muestra un placeholder en vez de romper el layout.
 export function miniatura(url, alt = '') {

@@ -23,7 +23,17 @@ export function crearSelectorFechas({ onCambio, excluirId = null } = {}) {
   let salida = null;
 
   const mensaje = el('p', { class: 'muted small' }, 'Elegí un departamento para ver su disponibilidad');
-  const cabecera = el('div', { class: 'selector-fechas__header' });
+  // Los botones de navegación y el título del mes se crean UNA sola vez: si se
+  // recrean en cada pintarCalendario() (como antes), un tap sobre un día queda
+  // mid-rebuild y el navegador puede resolver el click sintético (ghost click,
+  // típico en mobile sin touch-action) contra el botón "‹" que quedó justo
+  // encima, hciendo que el mes retroceda solo al elegir una fecha.
+  const btnPrev = el('button', { type: 'button', class: 'btn btn--ghost btn--sm' }, '‹');
+  const btnNext = el('button', { type: 'button', class: 'btn btn--ghost btn--sm' }, '›');
+  const tituloMes = el('strong', {}, '');
+  btnPrev.addEventListener('click', () => { cambiarMes(-1); });
+  btnNext.addEventListener('click', () => { cambiarMes(1); });
+  const cabecera = el('div', { class: 'selector-fechas__header' }, [btnPrev, tituloMes, btnNext]);
   const grillaSemana = el('div', { class: 'selector-fechas__semana' },
     ['D', 'L', 'M', 'M', 'J', 'V', 'S'].map((d) => el('span', {}, d)));
   const grilla = el('div', { class: 'selector-fechas__grid' });
@@ -110,12 +120,7 @@ export function crearSelectorFechas({ onCambio, excluirId = null } = {}) {
     mensaje.hidden = true; calendario.hidden = false;
     const reservas = cache.get(unidadId) || [];
 
-    cabecera.innerHTML = '';
-    const btnPrev = el('button', { type: 'button', class: 'btn btn--ghost btn--sm' }, '‹');
-    const btnNext = el('button', { type: 'button', class: 'btn btn--ghost btn--sm' }, '›');
-    btnPrev.addEventListener('click', () => { cambiarMes(-1); });
-    btnNext.addEventListener('click', () => { cambiarMes(1); });
-    cabecera.append(btnPrev, el('strong', {}, `${MESES[mesActual - 1]} ${anioActual}`), btnNext);
+    tituloMes.textContent = `${MESES[mesActual - 1]} ${anioActual}`;
 
     grilla.innerHTML = '';
     const dias = diasDelMes(anioActual, mesActual);

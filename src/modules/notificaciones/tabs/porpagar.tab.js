@@ -2,7 +2,18 @@
 // Vista "Por cobrar": reservas con saldo, las vencidas primero.
 // ============================================================
 import { el, money } from '../../../core/ui.js';
-import { puedeVerDinero, vacioNotif, telefonoLink, nombreDe, textoAtraso, botonOjo } from './_comunes.js';
+import { sesion } from '../../../core/sesion.js';
+import { cuentasService } from '../../../services/cuentas.service.js';
+import { abrirDetalleReserva } from '../../reservas/detalle.js';
+import { cerrarDrawer } from '../drawer.js';
+import { puedeVerDinero, vacioNotif, telefonoLink, nombreDe, textoAtraso, botonOjo, conDetalleExpandible, detalleReserva } from './_comunes.js';
+
+// Cuentas: solo se piden si alguien realmente toca "Pagar" (ahorra lecturas).
+let cuentasCache = null;
+async function cuentasLazy() {
+  if (!cuentasCache) cuentasCache = await cuentasService.getAll();
+  return cuentasCache;
+}
 
 export function crearVistaPorPagar(items = [], contadores = {}) {
   if (!puedeVerDinero()) {
@@ -41,6 +52,7 @@ function seccion(titulo, items, variante, claseTitulo) {
 }
 
 function item(r, variante) {
+  const puedeCobrar = sesion.puede('gestionarPagos');
   const tel = telefonoLink(r.huesped);
   const fila = el('div', { class: 'notif-item__fila' }, [
     el('span', { class: 'notif-item__unidad' }, [
@@ -49,14 +61,29 @@ function item(r, variante) {
     ]),
     el('span', { class: 'notif-item__monto' }, money(r.saldo || 0))
   ]);
-  const nodo = el('div', { class: `notif-item notif-item--${variante}` }, [
-    fila,
-    el('div', { class: 'notif-item__datos' }, [
-      tel,
-      el('span', { class: variante === 'vencido' ? 'notif-item__atraso' : 'notif-item__aviso' }, textoAtraso(r.diasVencido ?? 0))
-    ].filter(Boolean))
-  ]);
+  const datos = el('div', { class: 'notif-item__datos' }, [
+    tel,
+    el('span', { class: variante === 'vencido' ? 'notif-item__atraso' : 'notif-item__aviso' }, textoAtraso(r.diasVencido ?? 0))
+  ].filter(Boolean));
+  const nodo = el('div', { class: `notif-item notif-item--${variante}` }, [fila, datos]);
+
+  if (puedeCobrar) {
+    const btnPagar = el('button', {
+      class: 'btn btn--primary btn--sm', type: 'button',
+      onClick: async (e) => {
+        e.stopPropagation();
+        // Cerrar el panel de notificaciones antes de abrir el modal de pago:
+        // si se queda abierto de fondo, el modal se ve superpuesto encima
+        // de la lista, se ve mal y confunde.
+        const cuentas = await cuentasLazy();
+        cerrarDrawer();
+        await abrirDetalleReserva(r, cuentas);
+      }
+    }, 'Pagar');
+    nodo.append(el('div', { class: 'notif-item__acciones' }, [btnPagar]));
+  }
+
   const ojo = botonOjo(r.avisoId, nodo);
   if (ojo) fila.append(ojo);
-  return nodo;
+  return conDetalleExpandible(r.avisoId || r.id, nodo, fila, detalleReserva(r));
 }

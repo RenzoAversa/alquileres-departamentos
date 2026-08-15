@@ -705,6 +705,32 @@ input:not([type="checkbox"]):not([type="radio"]):focus, select:focus, textarea:f
 .reserva-grupo__body { padding: 0 var(--sp-4); }
 .reserva-grupo__body .lista__item:last-child { border-bottom: none; }
 
+/* Sub-grupo por piso, dentro de un .reserva-grupo de edificio (Departamentos).
+   Más chico/liviano que .reserva-grupo, para marcar la jerarquía. */
+.piso-grupo { margin: var(--sp-2) 0; border-left: 2px solid var(--borde); }
+.piso-grupo__header {
+  width: 100%; display: flex; align-items: center; gap: var(--sp-3);
+  padding: 6px var(--sp-3); background: none; border: none;
+  cursor: pointer; font-weight: 500; font-size: .85rem; color: var(--texto-muted); text-align: left;
+}
+.piso-grupo__header:hover { color: var(--texto); }
+.piso-grupo__header span:first-child { flex: 1; }
+.piso-grupo.is-abierto .piso-grupo__header .reserva-grupo__flecha { transform: rotate(180deg); }
+.piso-grupo__body { padding: 0 var(--sp-3) 0 var(--sp-4); }
+.piso-grupo__body .lista__item:last-child { border-bottom: none; }
+
+/* Título plegable de una card entera (ej. "Reservas finalizadas",
+   "Movimientos del mes"): reusa la flecha de .reserva-grupo, girándola
+   con la misma transición al abrir/cerrar. */
+.card-plegable__titulo {
+  display: flex; align-items: center; gap: 8px; cursor: pointer;
+  background: none; border: none; padding: 0; margin: 0;
+  font-family: inherit; font-size: 1.05rem; font-weight: 700; color: inherit; text-align: left;
+}
+.card-plegable__titulo:hover { opacity: .85; }
+.card-plegable__titulo .reserva-grupo__flecha { font-size: .85em; }
+.card-plegable.is-abierto .card-plegable__titulo .reserva-grupo__flecha { transform: rotate(180deg); }
+
 /* Modal más ancho y con scroll para el detalle */
 .modal--ancho { max-width: 560px; width: 100%; max-height: 88vh; overflow-y: auto; }
 .detalle-head { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--sp-4); margin-bottom: var(--sp-4); }
@@ -786,7 +812,13 @@ input:not([type="checkbox"]):not([type="radio"]):focus, select:focus, textarea:f
   position: relative; aspect-ratio: 1; border: 1px solid var(--borde); border-radius: var(--radio-sm);
   background: var(--superficie); color: var(--texto); cursor: pointer; font-size: .85rem;
   display: flex; align-items: center; justify-content: center;
+  /* Sin esto, el navegador espera ~300ms por un posible doble-tap (zoom) antes
+     de resolver el click en mobile, lo que puede generar un click fantasma
+     sobre un elemento vecino (ej. el botón "‹" de arriba) tras el rebuild
+     del calendario al elegir un día. */
+  touch-action: manipulation;
 }
+.selector-fechas__header button { touch-action: manipulation; }
 .selector-fechas__dia--vacio { visibility: hidden; cursor: default; border: none; background: transparent; }
 .selector-fechas__dia--pasado { color: var(--texto-muted); background: var(--fondo); cursor: not-allowed; }
 .selector-fechas__dia--ocupado,

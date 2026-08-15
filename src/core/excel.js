@@ -17,6 +17,7 @@ import {
 } from './metricas.js';
 import { estadoPagoDe, ETIQUETAS_PAGO } from '../services/reservas.service.js';
 import { toast } from './ui.js';
+import { colorPaletaHex, colorTextoPara } from './paleta.js';
 
 let promesa = null;
 function cargarSheetJS() {
@@ -50,7 +51,10 @@ const fmtFecha = (iso) => {
 };
 
 // Construye una hoja estilizada a partir de encabezados + filas.
-function hoja(headers, filas, { moneyCols = [], anchos = null, total = null } = {}) {
+// `colorFilas(i)`: si se pasa, devuelve un color hex (o null) para pintar
+// de fondo la 1ra columna de la fila de datos `i` (0-based) — se usa para
+// que una fila de un export coincida con el color de su porción de torta.
+function hoja(headers, filas, { moneyCols = [], anchos = null, total = null, colorFilas = null } = {}) {
   const XLSX = window.XLSX;
   const aoa = [headers, ...filas];
   if (total) aoa.push(total);
@@ -72,6 +76,15 @@ function hoja(headers, filas, { moneyCols = [], anchos = null, total = null } = 
       if (!cell) continue;
       if (moneyCols.includes(C) && typeof cell.v === 'number') cell.z = '#,##0';
       if (esTotal) cell.s = { ...(cell.s || {}), ...ESTILO_TOTAL };
+    }
+    if (colorFilas && !esTotal) {
+      const hex = colorFilas(R - 1);
+      if (hex) {
+        const a0 = XLSX.utils.encode_cell({ r: R, c: 0 });
+        if (ws[a0]) {
+          ws[a0].s = { ...(ws[a0].s || {}), fill: { fgColor: { rgb: hex } }, font: { ...(ws[a0].s?.font || {}), color: { rgb: colorTextoPara(hex) }, bold: true } };
+        }
+      }
     }
   }
   return ws;
@@ -95,7 +108,7 @@ export async function exportarReporte({ desde, hasta }) {
     cuentasService.getAll()
   ]);
   const reservas = reservasRaw.filter((r) => r.fechaEntrada <= hasta); // solapan el período
-  const nombreEd = (id) => edificios.find((e) => e.id === id)?.nombre || 'Sin edificio';
+  const nombreEd = (id) => edificios.find((e) => e.id === id)?.nombre || '';
   const nombreCta = (id) => cuentas.find((c) => c.id === id)?.nombre || '—';
 
   const fin = resumenMovimientos(movs, desde, hasta);
@@ -194,5 +207,85 @@ export async function exportarReporte({ desde, hasta }) {
   XLSX.utils.book_append_sheet(wb, wsCta, 'Saldos');
 
   XLSX.writeFile(wb, `reporte_${desde}_a_${hasta}.xlsx`);
+  toast('Excel generado', 'ok');
+}
+
+// ---- Export de gráficos de torta (Panel) ----
+// `hojas`: [{ nombre, items: [{ label, valor, color? }], esMoneda? }]
+// Cada hoja: Nombre / Valor / % del total, con la celda de Nombre pintada
+// del mismo color que la porción de la torta (misma paleta que core/graficos.js,
+// resuelta a hex). No dispara ninguna consulta a Firestore: reusa los
+// arrays ya calculados en memoria para dibujar los gráficos en pantalla.
+export async function exportarGraficosTorta(hojas, nombreArchivo) {
+  try {
+    await cargarSheetJS();
+  } catch {
+    toast('No se pudo cargar el exportador. Revisá tu conexión.', 'alerta');
+    return;
+  }
+  const XLSX = window.XLSX;
+  const wb = XLSX.utils.book_new();
+
+  hojas.forEach(({ nombre, items = [], esMoneda = false }) => {
+    const validos = items.filter((d) => Number(d.valor) > 0);
+    if (!validos.length) return;
+    const total = validos.reduce((a, d) => a + Number(d.valor), 0);
+    const filas = validos.map((d) => [
+      d.label,
+      Number(d.valor) || 0,
+      `${Math.round((Number(d.valor) / total) * 100)}%`
+    ]);
+    const ws = hoja(['Nombre', 'Valor', '% del total'], filas, {
+      anchos: [28, 18, 12],
+      moneyCols: esMoneda ? [1] : [],
+      colorFilas: (i) => validos[i]?.color || colorPaletaHex(i)
+    });
+    XLSX.utils.book_append_sheet(wb, ws, nombre.slice(0, 31));
+  });
+
+  if (!wb.SheetNames.length) { toast('No hay datos para exportar', 'alerta'); return; }
+  XLSX.writeFile(wb, nombreArchivo);
+  toast('Excel generado', 'ok');
+}
+
+// ---- Export de las tendencias mensuales (Reportes) ----
+// `datos`: [{ label, ingresos, egresos, neto, ocupacion, reservas }] por mes,
+// ya calculado por metricasPeriodo()/ultimosMeses() para pintar los gráficos
+// de Reportes — reusado tal cual, sin ninguna consulta nueva a Firestore.
+export async function exportarTendencias(datos = [], nombreArchivo) {
+  try {
+    await cargarSheetJS();
+  } catch {
+    toast('No se pudo cargar el exportador. Revisá tu conexión.', 'alerta');
+    return;
+  }
+  if (!datos.length) { toast('No hay datos para exportar', 'alerta'); return; }
+  const XLSX = window.XLSX;
+  const wb = XLSX.utils.book_new();
+  const anchosMes = [14, 16];
+
+  const wsIngresos = hoja(['Mes', 'Ingresos'], datos.map((d) => [d.label, Number(d.ingresos) || 0]),
+    { moneyCols: [1], anchos: anchosMes, colorFilas: () => colorPaletaHex(0) });
+  XLSX.utils.book_append_sheet(wb, wsIngresos, 'Ingresos por mes');
+
+  const wsOcup = hoja(['Mes', 'Ocupación'], datos.map((d) => [d.label, `${Math.round(Number(d.ocupacion) || 0)}%`]),
+    { anchos: anchosMes, colorFilas: () => colorPaletaHex(1) });
+  XLSX.utils.book_append_sheet(wb, wsOcup, 'Ocupación por mes');
+
+  const wsEvol = hoja(
+    ['Mes', 'Ingresos', 'Gastos', 'Neto'],
+    datos.map((d) => [d.label, Number(d.ingresos) || 0, Number(d.egresos) || 0, Number(d.neto) || 0]),
+    { moneyCols: [1, 2, 3], anchos: [14, 16, 16, 16] }
+  );
+  XLSX.utils.book_append_sheet(wb, wsEvol, 'Evolución mensual');
+
+  const wsVs = hoja(
+    ['Mes', 'Ingresos', 'Gastos'],
+    datos.map((d) => [d.label, Number(d.ingresos) || 0, Number(d.egresos) || 0]),
+    { moneyCols: [1, 2], anchos: anchosMes.concat(16) }
+  );
+  XLSX.utils.book_append_sheet(wb, wsVs, 'Ingresos vs gastos');
+
+  XLSX.writeFile(wb, nombreArchivo);
   toast('Excel generado', 'ok');
 }

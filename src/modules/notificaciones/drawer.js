@@ -45,13 +45,7 @@ export function abrirDrawer() {
     class: 'btn btn--ghost btn--sm', type: 'button', hidden: !hayAlgo,
     onClick: () => {
       notificacionesService.marcarTodasVistas();
-      // Refresco instantáneo (sin la animación de cierre) para que el
-      // panel recién abierto ya muestre todo atenuado.
-      document.querySelector('.notif-panel')?.remove();
-      document.querySelector('.notif-panel__fondo')?.remove();
-      if (limpiarTeclado) { limpiarTeclado(); limpiarTeclado = null; }
-      abierto = false;
-      abrirDrawer();
+      refrescarDrawer();
     }
   }, 'Marcar todas como vistas');
 
@@ -80,6 +74,18 @@ export function abrirDrawer() {
   limpiarTeclado = () => document.removeEventListener('keydown', alTeclear);
 
   panel.querySelector('.notif-panel__cerrar')?.focus();
+}
+
+// Refresco instantáneo (sin la animación de cierre): saca el panel actual
+// y lo vuelve a abrir ya con datos frescos. Usado tras "marcar todas
+// vistas" y tras pagar una reserva desde "Por cobrar", para no tener que
+// cerrar y volver a abrir el panel a mano para ver el cambio reflejado.
+export function refrescarDrawer() {
+  document.querySelector('.notif-panel')?.remove();
+  document.querySelector('.notif-panel__fondo')?.remove();
+  if (limpiarTeclado) { limpiarTeclado(); limpiarTeclado = null; }
+  abierto = false;
+  abrirDrawer();
 }
 
 export function cerrarDrawer() {

@@ -132,13 +132,23 @@ export async function render(container) {
 
   // ---- Reservas finalizadas: mismo listado, aparte, para no mezclar lo
   // que ya terminó con lo activo. Una reserva "termina" cuando ya pasó
-  // su fecha+hora de salida (no depende del estado operativo).
-  const seccionFin = el('div', { class: 'card' });
+  // su fecha+hora de salida (no depende del estado operativo). Plegada
+  // por default: solo se abre si se quiere ver.
+  const seccionFin = el('div', { class: 'card card-plegable' });
+  const listaContFin = el('div', {});
+  listaContFin.hidden = true;
+  const tituloFin = el('button', { type: 'button', class: 'card-plegable__titulo' }, [
+    'Reservas finalizadas',
+    el('span', { class: 'reserva-grupo__flecha' }, '▾')
+  ]);
+  tituloFin.addEventListener('click', () => {
+    listaContFin.hidden = !listaContFin.hidden;
+    seccionFin.classList.toggle('is-abierto', !listaContFin.hidden);
+  });
   const headerFin = el('div', { class: 'finanzas-head' }, [
-    el('h3', {}, 'Reservas finalizadas'),
+    tituloFin,
     botonRecargar(() => cargarLista())
   ]);
-  const listaContFin = el('div', {});
   seccionFin.append(headerFin, listaContFin);
   container.append(seccionFin);
 

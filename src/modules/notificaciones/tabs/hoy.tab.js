@@ -2,7 +2,7 @@
 // Vista "Hoy": quién entra, quién sale y qué falta cobrar.
 // ============================================================
 import { el, money } from '../../../core/ui.js';
-import { puedeVerDinero, vacioNotif, telefonoLink, nombreDe, textoAtraso, botonOjo } from './_comunes.js';
+import { puedeVerDinero, vacioNotif, telefonoLink, nombreDe, textoAtraso, botonOjo, conDetalleExpandible, detalleReserva } from './_comunes.js';
 
 export function crearVistaHoy(datos) {
   const { checkIn = [], checkOut = [], pagoPendiente = [] } = datos || {};
@@ -45,7 +45,7 @@ function itemMovimiento(r, tipo) {
   ]);
   const ojo = botonOjo(r.avisoId, item);
   if (ojo) fila.append(ojo);
-  return item;
+  return conDetalleExpandible(r.avisoId || `${r.id}:${tipo}`, item, fila, detalleReserva(r));
 }
 
 function itemCobro(r) {
@@ -65,7 +65,7 @@ function itemCobro(r) {
   ]);
   const ojo = botonOjo(r.avisoId, item);
   if (ojo) fila.append(ojo);
-  return item;
+  return conDetalleExpandible(r.avisoId || r.id, item, fila, detalleReserva(r));
 }
 
 function datos(partes) {
