@@ -1,7 +1,7 @@
 // Service Worker mínimo. Cache-first para estáticos + cacheo dinámico
 // de lo que se va pidiendo (JS/CSS de los módulos), así queda disponible offline.
 // NO cachea las llamadas a Firebase (dejá que vayan siempre a la red).
-const CACHE = 'alquileres-v4';
+const CACHE = 'alquileres-v5';
 const ESTATICOS = [
   './index.html',
   './login.html',
