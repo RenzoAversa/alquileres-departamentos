@@ -115,29 +115,64 @@ export function crearSelectorFechas({ onCambio, excluirId = null } = {}) {
     element.dispatchEvent(new Event('input', { bubbles: true }));
   }
 
+  // Igual que con el header (ver comentario arriba): las celdas de día NUNCA
+  // se destruyen una vez creadas, se reutilizan y solo se les actualiza
+  // clase/texto/dataset. Si se recrean en cada pintarCalendario() (como antes),
+  // un tap sobre un día puede resolver como ghost-click contra lo que quedó
+  // en esa posición tras el rebuild — en mobile esto se veía como "elegir un
+  // día te manda un mes para atrás".
+  const poolCeldas = [];
+  let reservasActual = [];
+
+  function obtenerCelda(i) {
+    if (poolCeldas[i]) return poolCeldas[i];
+    const celda = el('button', { type: 'button', class: 'selector-fechas__dia selector-fechas__dia--vacio' }, '');
+    celda.addEventListener('click', () => {
+      const iso = celda.dataset.iso;
+      if (!iso) return;
+      clickDia(iso, reservasActual);
+    });
+    poolCeldas[i] = celda;
+    grilla.append(celda);
+    return celda;
+  }
+
   function pintarCalendario() {
     if (!unidadId) { calendario.hidden = true; mensaje.hidden = false; return; }
     mensaje.hidden = true; calendario.hidden = false;
-    const reservas = cache.get(unidadId) || [];
+    reservasActual = cache.get(unidadId) || [];
 
     tituloMes.textContent = `${MESES[mesActual - 1]} ${anioActual}`;
 
-    grilla.innerHTML = '';
     const dias = diasDelMes(anioActual, mesActual);
     const primerDow = diaSemana(dias[0]);
-    for (let i = 0; i < primerDow; i++) grilla.append(el('span', { class: 'selector-fechas__dia selector-fechas__dia--vacio' }, ''));
+    const totalCeldas = primerDow + dias.length;
 
-    dias.forEach((iso) => {
-      const estado = estadoDia(iso, reservas);
+    for (let i = 0; i < totalCeldas; i++) {
+      const celda = obtenerCelda(i);
+      celda.style.display = '';
+      if (i < primerDow) {
+        celda.className = 'selector-fechas__dia selector-fechas__dia--vacio';
+        celda.textContent = '';
+        celda.disabled = false;
+        delete celda.dataset.iso;
+        continue;
+      }
+      const iso = dias[i - primerDow];
+      const estado = estadoDia(iso, reservasActual);
       const clases = ['selector-fechas__dia', `selector-fechas__dia--${estado}`];
       if (entrada && iso === entrada) clases.push('is-entrada');
       if (salida && iso === salida) clases.push('is-salida');
       if (entrada && !salida && iso > entrada) clases.push('is-en-rango-tentativo');
       if (entrada && salida && iso > entrada && iso < salida) clases.push('is-en-rango');
-      const celda = el('button', { type: 'button', class: clases.join(' '), disabled: estado === 'pasado' }, String(Number(iso.slice(8))));
-      celda.addEventListener('click', () => clickDia(iso, reservas));
-      grilla.append(celda);
-    });
+      celda.className = clases.join(' ');
+      celda.textContent = String(Number(iso.slice(8)));
+      celda.disabled = estado === 'pasado';
+      celda.dataset.iso = iso;
+    }
+    // Celdas del pool que sobran este mes (meses de 5 semanas vs 6): se ocultan
+    // pero no se destruyen, quedan listas para reusarse el próximo mes que las necesite.
+    for (let i = totalCeldas; i < poolCeldas.length; i++) poolCeldas[i].style.display = 'none';
   }
 
   function cambiarMes(delta) {
