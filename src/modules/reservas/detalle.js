@@ -57,7 +57,8 @@ export function abrirDetalleReserva(reserva, cuentas, onCambio) {
     cuerpo.append(el('div', { class: 'detalle-head' }, [
       el('div', {}, [
         el('h3', { style: 'margin:0' }, r.unidadNombre || 'Reserva'),
-        el('div', { class: 'muted small' }, `${r.huesped?.nombre || ''} · ${fecha(r.fechaEntrada)} ${r.horaEntrada || '15:00'} → ${fecha(r.fechaSalida)} ${r.horaSalida || '10:00'}`)
+        el('div', { class: 'muted small' }, `${r.huesped?.nombre || ''} · ${fecha(r.fechaEntrada)} ${r.horaEntrada || '15:00'} → ${fecha(r.fechaSalida)} ${r.horaSalida || '10:00'}`),
+        r.huesped?.email ? el('div', { class: 'muted small' }, r.huesped.email) : null
       ]),
       el('div', { style: 'display:flex;gap:8px' }, [
         btnRecibo,

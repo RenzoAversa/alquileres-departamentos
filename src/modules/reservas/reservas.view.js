@@ -215,6 +215,7 @@ function abrirAltaReserva(unidades, onGuardar, preset = null) {
   ]);
   const inHuesped = el('input', { placeholder: 'Nombre y apellido' });
   const inTelefono = el('input', { placeholder: '+54 9 ...' });
+  const inEmail = el('input', { type: 'email', placeholder: 'nombre@mail.com' });
   const selectorFechas = crearSelectorFechas({ onCambio: () => actualizarResumenPrecio() });
   const inHoraEntrada = el('input', { type: 'time', value: HORA_ENTRADA_DEFAULT });
   const inHoraSalida = el('input', { type: 'time', value: HORA_SALIDA_DEFAULT });
@@ -253,6 +254,7 @@ function abrirAltaReserva(unidades, onGuardar, preset = null) {
     campo('Departamento', selUnidad, { requerido: true }),
     campo('Huésped', inHuesped, { requerido: true }),
     campo('Teléfono', inTelefono),
+    campo('Email', inEmail),
     campo('Fechas', selectorFechas.element, { requerido: true }),
     fila([campo('Hora de entrada', inHoraEntrada), campo('Hora de salida', inHoraSalida)]),
     campo('Canal', selCanal),
@@ -282,6 +284,7 @@ function abrirAltaReserva(unidades, onGuardar, preset = null) {
     const errores = validarFormulario([
       { elemento: selUnidad, validar: () => !unidadId && 'Elegí un departamento.' },
       { elemento: inHuesped, validar: () => !inHuesped.value.trim() && 'Ingresá el nombre del huésped.' },
+      { elemento: inEmail, validar: () => inEmail.value.trim() && !emailValido(inEmail.value) && 'Ingresá un email válido.' },
       { elemento: selectorFechas.element, validar: () => !(entrada && salida) && 'Elegí las fechas de entrada y salida en el calendario.' },
       { elemento: inTotalManual, validar: () => (inTotalManual.value === '' || isNaN(Number(inTotalManual.value)) || Number(inTotalManual.value) < 0) && 'Ingresá un total válido (0 o más).' }
     ]);
@@ -308,7 +311,7 @@ function abrirAltaReserva(unidades, onGuardar, preset = null) {
         unidadId,
         unidadNombre: unidad?.nombre || '',
         edificioId: unidad?.edificioId || null,
-        huesped: { nombre: inHuesped.value.trim(), telefono: inTelefono.value.trim() },
+        huesped: { nombre: inHuesped.value.trim(), telefono: inTelefono.value.trim(), email: inEmail.value.trim() },
         fechaEntrada: entrada, fechaSalida: salida, noches: n,
         horaEntrada: inHoraEntrada.value || HORA_ENTRADA_DEFAULT,
         horaSalida: inHoraSalida.value || HORA_SALIDA_DEFAULT,
@@ -327,6 +330,7 @@ function abrirAltaReserva(unidades, onGuardar, preset = null) {
 }
 
 function fila(campos) { return el('div', { class: 'form__fila' }, campos); }
+function emailValido(v) { return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.trim()); }
 function selectCanal() {
   const s = el('select', {});
   ['directo', 'booking', 'airbnb', 'otro'].forEach((c) => s.append(el('option', { value: c }, c.charAt(0).toUpperCase() + c.slice(1))));

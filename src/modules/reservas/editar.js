@@ -20,6 +20,7 @@ export function abrirEdicionReserva(reserva, unidades, onGuardar) {
     el('option', { value: u.id, selected: (u.id === reserva.unidadId) || undefined }, u.nombre)));
   const inHuesped = el('input', { type: 'text', value: reserva.huesped?.nombre || '' });
   const inTelefono = el('input', { type: 'text', value: reserva.huesped?.telefono || '' });
+  const inEmail = el('input', { type: 'email', value: reserva.huesped?.email || '', placeholder: 'nombre@mail.com' });
   const selCanal = el('select', {}, ['directo', 'booking', 'airbnb', 'otro'].map((c) =>
     el('option', { value: c, selected: (reserva.canal === c) || undefined }, c.charAt(0).toUpperCase() + c.slice(1))));
   const inHoraEntrada = el('input', { type: 'time', value: reserva.horaEntrada || HORA_ENTRADA_DEFAULT });
@@ -67,6 +68,7 @@ export function abrirEdicionReserva(reserva, unidades, onGuardar) {
     campo('Departamento', selUnidad, { requerido: true }),
     campo('Huésped', inHuesped, { requerido: true }),
     campo('Teléfono', inTelefono),
+    campo('Email', inEmail),
     campo('Fechas', selectorFechas.element, { requerido: true }),
     fila([campo('Hora de entrada', inHoraEntrada), campo('Hora de salida', inHoraSalida)]),
     campo('Canal', selCanal),
@@ -95,6 +97,7 @@ export function abrirEdicionReserva(reserva, unidades, onGuardar) {
     const errores = validarFormulario([
       { elemento: selUnidad, validar: () => !unidad && 'Elegí un departamento.' },
       { elemento: inHuesped, validar: () => !inHuesped.value.trim() && 'Ingresá el nombre del huésped.' },
+      { elemento: inEmail, validar: () => inEmail.value.trim() && !emailValido(inEmail.value) && 'Ingresá un email válido.' },
       { elemento: selectorFechas.element, validar: () => !(entrada && salida) && 'Elegí las fechas de entrada y salida en el calendario.' },
       { elemento: inTotalManual, validar: () => (inTotalManual.value === '' || isNaN(Number(inTotalManual.value)) || Number(inTotalManual.value) < 0) && 'Ingresá un total válido (0 o más).' }
     ]);
@@ -123,7 +126,7 @@ export function abrirEdicionReserva(reserva, unidades, onGuardar) {
         unidadId: unidad.id,
         unidadNombre: unidad.nombre || '',
         edificioId: unidad.edificioId || null,
-        huesped: { nombre: inHuesped.value.trim(), telefono: inTelefono.value.trim() },
+        huesped: { nombre: inHuesped.value.trim(), telefono: inTelefono.value.trim(), email: inEmail.value.trim() },
         fechaEntrada: entrada,
         fechaSalida: salida,
         horaEntrada: inHoraEntrada.value || HORA_ENTRADA_DEFAULT,
@@ -142,3 +145,5 @@ export function abrirEdicionReserva(reserva, unidades, onGuardar) {
     }
   });
 }
+
+function emailValido(v) { return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.trim()); }
