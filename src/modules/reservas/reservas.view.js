@@ -56,7 +56,7 @@ function agruparPorPropiedad(reservasOrdenadas, unidades, edificios) {
       const titulo = unidad?.edificioId
         ? (edificios.find((e) => e.id === unidad.edificioId)?.nombre || 'Edificio')
         : (r.unidadNombre || 'Departamento suelto');
-      grupos.set(key, { titulo, reservas: [] });
+      grupos.set(key, { key, titulo, reservas: [] });
     }
     grupos.get(key).reservas.push(r);
   });
@@ -92,6 +92,7 @@ export async function render(container) {
 
   let filtroPago = 'todas';
   let orden = 'entrada_desc';
+  const gruposAbiertos = new Set();
   const seccion = el('div', { class: 'card' });
   const headerLista = el('div', { class: 'finanzas-head' }, [
     el('h3', {}, 'Reservas registradas'),
@@ -171,13 +172,21 @@ export async function render(container) {
 
   // Menú desplegable por edificio/departamento: agrupa y sólo pinta el
   // detalle cuando se abre (mismo trabajo, mucho más legible de un vistazo).
+  // Qué grupos están abiertos vive en `gruposAbiertos` (afuera de esta
+  // función), así sobrevive a los recargos de la lista después de guardar,
+  // pagar o eliminar una reserva: antes cada recarga los volvía a cerrar.
   function renderGrupo(grupo) {
+    const abierto = gruposAbiertos.has(grupo.key);
     const body = el('div', { class: 'reserva-grupo__body' }, grupo.reservas.map((r) => renderFila(r)));
-    body.hidden = true;
-    const grupoEl = el('div', { class: 'reserva-grupo' }, [
+    body.hidden = !abierto;
+    const grupoEl = el('div', { class: `reserva-grupo ${abierto ? 'is-abierto' : ''}` }, [
       el('button', {
         class: 'reserva-grupo__header', type: 'button',
-        onClick: () => { body.hidden = !body.hidden; grupoEl.classList.toggle('is-abierto', !body.hidden); }
+        onClick: () => {
+          body.hidden = !body.hidden;
+          grupoEl.classList.toggle('is-abierto', !body.hidden);
+          if (body.hidden) gruposAbiertos.delete(grupo.key); else gruposAbiertos.add(grupo.key);
+        }
       }, [
         el('span', { class: 'reserva-grupo__titulo' }, grupo.titulo),
         el('span', { class: 'badge badge--info' }, `${grupo.reservas.length} reserva(s)`),
