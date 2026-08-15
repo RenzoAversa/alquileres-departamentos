@@ -13,11 +13,10 @@ import { el, spinner, money, toast, miniatura } from '../../core/ui.js';
 import { store } from '../../core/store.js';
 import { navegar } from '../../core/router.js';
 import { appConfig } from '../../firebase/init.js';
+import { hoyISO, masDias } from '../../core/metricas.js';
 
 const MOSTRAR_FOTOS = !!appConfig.features.fotos;
 
-const hoyISO = () => new Date().toISOString().slice(0, 10);
-const masDias = (iso, d) => { const x = new Date(iso); x.setDate(x.getDate() + d); return x.toISOString().slice(0, 10); };
 const campo = (label, input) => el('label', { class: 'form__campo' }, [el('span', {}, label), input]);
 
 function pinIcon(estado = 'base') {

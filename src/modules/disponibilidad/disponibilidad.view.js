@@ -11,9 +11,8 @@ import { edificiosService } from '../../services/edificios.service.js';
 import { el, toast, spinner, vacio, money, noches } from '../../core/ui.js';
 import { navegar } from '../../core/router.js';
 import { store } from '../../core/store.js';
+import { hoyISO, masDias } from '../../core/metricas.js';
 
-const hoyISO = () => new Date().toISOString().slice(0, 10);
-const masDias = (iso, d) => { const x = new Date(iso); x.setDate(x.getDate() + d); return x.toISOString().slice(0, 10); };
 const campo = (label, input) => el('label', { class: 'form__campo' }, [el('span', {}, label), input]);
 
 // ¿La unidad está libre en [entrada, salida)? (misma lógica del servicio,

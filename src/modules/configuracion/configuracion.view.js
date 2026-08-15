@@ -56,7 +56,7 @@ export async function render(container) {
     });
     cardUsuarios.append(form);
     cardUsuarios.append(el('p', { class: 'muted small', style: 'margin-bottom:12px' },
-      'Nota: además de asignar el rol acá, la cuenta de acceso (email + contraseña) se crea en la consola de Firebase → Authentication.'));
+      'Nota: Antes de agregar usuario, avisar a Renzo.'));
 
     const listaCont = el('div', {});
     cardUsuarios.append(listaCont);

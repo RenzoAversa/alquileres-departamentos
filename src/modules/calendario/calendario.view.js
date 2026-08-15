@@ -86,12 +86,21 @@ export async function render(container) {
         const i0 = indice.get(desde);
         const i1 = indice.get(hasta);
         if (i0 == null || i1 == null) return null;
+        const vieneDeAntes = r.fechaEntrada < primerDia;
+        const sigueDespues = ultimaNoche > ultimoDia;
         return {
           reserva: r,
           inicio: i0,
           largo: i1 - i0 + 1,
-          vieneDeAntes: r.fechaEntrada < primerDia,
-          sigueDespues: ultimaNoche > ultimoDia
+          vieneDeAntes,
+          sigueDespues,
+          // Entra/sale "a mitad del día": la banda arranca desde la mitad
+          // de la celda de entrada y sigue hasta la mitad de la celda
+          // siguiente a la última noche (el propio día de salida), en vez
+          // de ocupar la celda completa. Solo si hay margen visual para
+          // eso (no aplica si la estadía sigue fuera del mes mostrado).
+          medioInicio: !vieneDeAntes,
+          medioFin: !sigueDespues && (i1 + 1) < dias.length
         };
       })
       .filter(Boolean)
@@ -104,6 +113,8 @@ export async function render(container) {
     const clases = ['cal-banda'];
     if (tramo.vieneDeAntes) clases.push('cal-banda--desde-antes');
     if (tramo.sigueDespues) clases.push('cal-banda--hasta-despues');
+    if (tramo.medioInicio) clases.push('cal-banda--medio-inicio');
+    if (tramo.medioFin) clases.push('cal-banda--medio-fin');
     if (verDinero) clases.push(`cal-banda--${pagoDe(r)}`);
 
     const detalle = [
@@ -254,6 +265,7 @@ export async function render(container) {
     ]));
 
     // ---- Movimientos del mes: entradas y salidas, agrupadas por día ----
+    
     const reservasDelFiltro = reservas.filter((r) => unidadesFiltradas.some((u) => u.id === r.unidadId));
     const movimientosMes = [];
     reservasDelFiltro.forEach((r) => {
@@ -286,6 +298,7 @@ export async function render(container) {
       ));
     }
     cont.append(seccion);
+    
   }
 
   // Etiqueta relativa de ESTE movimiento puntual (entrada o salida), no del
@@ -319,6 +332,7 @@ export async function render(container) {
       ].filter(Boolean))
     ]);
   }
-
+  
   await pintar();
+
 }

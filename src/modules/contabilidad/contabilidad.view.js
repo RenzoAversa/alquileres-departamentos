@@ -11,11 +11,11 @@ import { movimientosService } from '../../services/movimientos.service.js';
 import { unidadesService } from '../../services/unidades.service.js';
 import { el, toast, confirmar, spinner, money, fecha, botonRecargar, crearPaginado, abrirModal, boton } from '../../core/ui.js';
 import { exportarReporte } from '../../core/excel.js';
+import { hoyISO } from '../../core/metricas.js';
 
 const CATEGORIAS = ['alquiler', 'limpieza', 'servicios', 'mantenimiento', 'impuestos', 'comision', 'otro'];
 const TIPOS_CUENTA = { efectivo: 'Efectivo', banco: 'Transferencia / Banco', billetera: 'Billetera (MP)', tarjeta: 'Tarjeta' };
 
-const hoyISO = () => new Date().toISOString().slice(0, 10);
 const campo = (label, input) => el('label', { class: 'form__campo' }, [el('span', {}, label), input]);
 const fila = (c) => el('div', { class: 'form__fila' }, c);
 

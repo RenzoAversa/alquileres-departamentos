@@ -8,7 +8,14 @@
 const DIA_MS = 86400000;
 const parse = (iso) => new Date(iso + 'T00:00:00Z');
 
-export const hoyISO = () => new Date().toISOString().slice(0, 10);
+// Fecha de HOY según el reloj local del dispositivo (no UTC): usar
+// toISOString() acá desfasaba un día entero en husos horarios negativos
+// (ej. Argentina, UTC-3) durante la noche, porque la hora UTC ya había
+// cruzado la medianoche del día siguiente.
+export const hoyISO = () => {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+};
 
 const LETRA_DIA = ['D', 'L', 'M', 'M', 'J', 'V', 'S'];
 

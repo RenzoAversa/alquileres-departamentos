@@ -10,8 +10,8 @@ import { reservasService, estadoPagoDe, ETIQUETAS_PAGO, ESTADOS_RESERVA } from '
 import { movimientosService } from '../../services/movimientos.service.js';
 import { el, toast, confirmar, spinner, money, fecha } from '../../core/ui.js';
 import { generarReciboReserva } from '../../core/pdf.js';
+import { hoyISO } from '../../core/metricas.js';
 
-const hoyISO = () => new Date().toISOString().slice(0, 10);
 const cap = (s) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : '');
 const campo = (label, input) => el('label', { class: 'form__campo' }, [el('span', {}, label), input]);
 
