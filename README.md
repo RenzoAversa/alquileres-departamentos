@@ -22,33 +22,31 @@ alquileres-app/
 ├── scripts/
 │   └── nuevo-cliente.sh      # Genera la config de un cliente nuevo
 ├── config/
-│   └── client.config.example.js   # Plantilla (molde) de config
-└── public/                  # Lo que se publica (raíz de Hosting)
-    ├── index.html            # App autenticada (shell + SPA)
-    ├── login.html            # Pantalla de ingreso
-    ├── config/
-    │   └── client.config.js  # ⭐ Config REAL del cliente (claves + branding)
-    ├── assets/styles/        # tokens.css (design system) + styles.css
-    └── src/
-        ├── main.js           # Guard de auth + arma sidebar + arranca router
-        ├── firebase/init.js  # Inicializa Firebase (app, db, auth)
-        ├── core/             # router, auth, store, ui, geo (Leaflet + geocoding)
-        ├── services/         # ⭐ Capa de datos sobre Firestore
-        │   ├── base.service.js       # CRUD genérico (todos heredan de acá)
-        │   ├── edificios.service.js
-        │   ├── unidades.service.js
-        │   ├── reservas.service.js   # incluye verificarDisponibilidad()
-        │   ├── cuentas.service.js    # cuentas/medios de pago con saldo
-        │   └── movimientos.service.js# ingresos/egresos/transferencias (increment)
-        └── modules/          # Una carpeta por sección de la app
-            ├── dashboard/      ✅ KPIs + saldos por cuenta
-            ├── propiedades/    ✅ edificios + unidades (CRUD)
-            ├── reservas/       ✅ fechas + estados de pago + detalle.js (pagos) + editar.js (edición)
-            ├── disponibilidad/ ✅ buscador: fechas + huéspedes -> libres + precio
-            ├── contabilidad/   ✅ Finanzas: cuentas, saldos, ingresos/egresos/transferencias
-            ├── configuracion/  ✅ cuenta + gestión de usuarios/roles (dueño)
-            ├── calendario/     ✅ grilla mensual por unidad (estilo PMS)
-            └── mapa/           ✅ mapa + filtro de disponibilidad + selector de ubicación
+│   ├── client.config.example.js   # Plantilla (molde) de config
+│   └── client.config.js  # ⭐ Config REAL del cliente (claves + branding)
+├── index.html            # App autenticada (shell + SPA), raíz = lo que se publica
+├── login.html            # Pantalla de ingreso
+├── assets/styles/        # tokens.css (design system) + styles.css
+└── src/
+    ├── main.js           # Guard de auth + arma sidebar + arranca router
+    ├── firebase/init.js  # Inicializa Firebase (app, db, auth)
+    ├── core/             # router, auth, store, ui, geo (Leaflet + geocoding)
+    ├── services/         # ⭐ Capa de datos sobre Firestore
+    │   ├── base.service.js       # CRUD genérico (todos heredan de acá)
+    │   ├── edificios.service.js
+    │   ├── unidades.service.js
+    │   ├── reservas.service.js   # incluye verificarDisponibilidad()
+    │   ├── cuentas.service.js    # cuentas/medios de pago con saldo
+    │   └── movimientos.service.js# ingresos/egresos/transferencias (increment)
+    └── modules/          # Una carpeta por sección de la app
+        ├── dashboard/      ✅ KPIs + saldos por cuenta
+        ├── propiedades/    ✅ edificios + unidades (CRUD)
+        ├── reservas/       ✅ fechas + estados de pago + detalle.js (pagos) + editar.js (edición)
+        ├── disponibilidad/ ✅ buscador: fechas + huéspedes -> libres + precio
+        ├── contabilidad/   ✅ Finanzas: cuentas, saldos, ingresos/egresos/transferencias
+        ├── configuracion/  ✅ cuenta + gestión de usuarios/roles (dueño)
+        ├── calendario/     ✅ grilla mensual por unidad (estilo PMS)
+        └── mapa/           ✅ mapa + filtro de disponibilidad + selector de ubicación
 ```
 
 ### Las dos piezas clave de la escalabilidad
@@ -64,10 +62,10 @@ alquileres-app/
 Los ES Modules necesitan servirse por HTTP (no funcionan abriendo el archivo directo).
 
 ```bash
-npm run serve       # levanta public/ en http://localhost:5000
+npm run serve       # levanta la app en http://localhost:5000
 ```
 
-(usa `npx serve`; si prefierís: `python3 -m http.server -d public 5000`).
+(usa `npx serve`; si prefierís: `python3 -m http.server 5000`).
 
 ---
 
@@ -89,7 +87,7 @@ npm run nuevo-cliente
 
 El script te pide nombre, projectId y claves, y genera:
 - `.firebaserc` apuntando al proyecto del cliente
-- `public/config/client.config.js` con sus claves + branding
+- `config/client.config.js` con sus claves + branding
 
 Después:
 
@@ -166,8 +164,8 @@ Ver **ONBOARDING.md** para el paso a paso. Resumen: cada cliente = su propio pro
 Firebase + su propia publicación (GitHub Pages o Firebase Hosting).
 
 - `npm run nuevo-cliente` genera la config del cliente (claves + marca) y el `.firebaserc`.
-- `.github/workflows/deploy-pages.yml` publica `public/` en GitHub Pages en cada push
-  (Settings → Pages → Source: GitHub Actions).
+- Este repo publica en GitHub Pages desde la rama `main` (raíz), en modo clásico
+  (Settings → Pages → Source: rama). Cada push a `main` republica sola, sin workflow.
 - Las rutas son relativas y la navegación es por hash, así que la app funciona bajo el
   subdirectorio de GitHub Pages sin tocar nada.
 
@@ -183,7 +181,7 @@ innecesario.
 ## 🌐 Agregar el sitio web público (más adelante, para el cliente que lo pague)
 
 La estructura ya lo contempla con el feature flag `features.web`. Cuando lo armemos:
-- Se agrega una carpeta `public/web/` (o páginas en la raíz) con el sitio público:
+- Se agrega una carpeta `web/` (o páginas en la raíz) con el sitio público:
   landing + buscador de disponibilidad + reserva online.
 - El sitio público **lee** las mismas colecciones (`unidades`, `reservas`) usando los
   mismos servicios, pero sin login (con reglas de solo-lectura para lo público).

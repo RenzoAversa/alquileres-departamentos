@@ -37,7 +37,7 @@ npm run nuevo-cliente
 
 Te va a pedir el nombre, el color y las claves de Firebase, y genera:
 - `.firebaserc` (apunta al proyecto del cliente)
-- `public/config/client.config.js` (claves + marca del cliente)
+- `config/client.config.js` (claves + marca del cliente)
 
 En ese archivo también podés prender/apagar módulos por cliente (`features`) y cambiar el
 color (`cliente.colorPrimario`).
@@ -49,8 +49,8 @@ color (`cliente.colorPrimario`).
 Las reglas hacen que la base solo sea accesible con login. Subilas con la Firebase CLI:
 
 ```bash
-npm install -g firebase-tools   # si no la tenés
-firebase login                  # una sola vez en tu compu
+npm install                     # ya incluye firebase-tools como devDependency
+npx firebase login              # una sola vez en tu compu
 npm run deploy:rules            # sube firestore.rules + índices
 ```
 
@@ -59,6 +59,11 @@ npm run deploy:rules            # sube firestore.rules + índices
 ## 4. Publicar la app — elegí UNA opción
 
 ### Opción A — GitHub Pages (gratis, recomendada para tu caso)
+
+> Este repo (alquileres-departamentos) ya está publicado así: Pages sirve directo
+> desde la rama `main`, carpeta raíz (Settings → Pages → Source: rama `main` / `/`).
+> Cada push a `main` republica sola, sin workflow. Los pasos de abajo son para dar de
+> alta un cliente nuevo en un repo propio.
 
 1. Creá un **repo nuevo** en GitHub para este cliente.
 2. Subí el proyecto:
@@ -70,9 +75,8 @@ npm run deploy:rules            # sube firestore.rules + índices
    git remote add origin <URL-del-repo>
    git push -u origin main
    ```
-3. En el repo: **Settings → Pages → Source: GitHub Actions**.
-   El workflow `.github/workflows/deploy-pages.yml` publica la carpeta `public/`
-   automáticamente en cada push. En un minuto tenés la URL
+3. En el repo: **Settings → Pages → Source: rama `main`, carpeta `/`** (modo clásico,
+   sin workflow, igual que este repo). En un minuto tenés la URL
    (`https://usuario.github.io/repo/`).
 
 > La app usa rutas relativas y navegación por hash, así que funciona perfecto bajo el
