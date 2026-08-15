@@ -1,260 +1,65 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
-    <meta http-equiv="Pragma" content="no-cache">
-    <meta http-equiv="Expires" content="0">
-    <meta name="theme-color" content="#4A90E2">
-    <title>Alquileres Lucri :)</title>
-    <link rel="icon" type="image/svg+xml" href="favicon.svg">
-    <link rel="alternate icon" href="favicon.ico">
-    <link rel="apple-touch-icon" href="favicon.svg">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
-    <link rel="stylesheet" href="css/style.css?v=10&t=20251114">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#2563eb" />
+  <title>Alquileres</title>
+  <!-- Anti-flash: aplica el tema guardado ANTES de pintar (clave igual a core/tema.js) -->
+  <script>(function(){try{if(localStorage.getItem('alquileres_tema')==='oscuro')document.documentElement.setAttribute('data-tema','oscuro');}catch(e){}})();</script>
+  <link rel="icon" type="image/svg+xml" href="favicon.svg" />
+  <link rel="manifest" href="manifest.json" />
+  <link rel="stylesheet" href="assets/styles/tokens.css" />
+  <link rel="stylesheet" href="assets/styles/styles.css" />
+  <link rel="stylesheet" href="assets/styles/notificaciones.css" />
+
+  <!-- Import map: resuelve los módulos de Firebase desde el CDN -->
+  <script type="importmap">
+  {
+    "imports": {
+      "firebase/app": "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js",
+      "firebase/firestore": "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js",
+      "firebase/auth": "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js"
+    }
+  }
+  </script>
+
 </head>
 <body>
-    <header>
-        <div class="container">
-            <h1>🏢 Registro de Alquileres</h1>
-            <p class="subtitle">Gestión de departamentos y reservas</p>
+  <div id="cargando-inicial" class="cargando-inicial">Cargando…</div>
+
+  <div id="app" hidden>
+    <!-- Sidebar -->
+    <aside class="sidebar">
+      <div class="marca">
+        <div class="marca__logo" id="marca-inicial">A</div>
+        <div class="marca__nombre" id="marca-nombre">Alquileres</div>
+      </div>
+      <nav class="nav" id="nav"></nav>
+      <div class="sidebar__pie">
+        <div class="user">
+          <div class="user__email" id="user-email"></div>
+          <div class="user__acciones">
+            <button class="btn btn--ghost btn--sm" id="btn-tema" type="button" title="Cambiar tema">🌙</button>
+            <button class="btn btn--ghost btn--sm" id="btn-logout">Salir</button>
+          </div>
         </div>
-    </header>
+      </div>
+    </aside>
 
-    <main class="container">
-        <div class="tabs">
-            <button class="tab-btn active" data-tab="departamentos">Departamentos</button>
-            <button class="tab-btn" data-tab="reservas">Reservas</button>
-            <button class="tab-btn" data-tab="buscador">Buscar Disponibilidad</button>
-            <button class="tab-btn" data-tab="calendario">📅 Calendario</button>
-        </div>
+    <div class="overlay" id="overlay"></div>
 
-        <section id="tab-departamentos" class="tab-content active">
-            <h2>Gestión de Departamentos</h2>
-            
-            <div class="card">
-                <h3>Agregar Departamento</h3>
-                <form id="form-departamento">
-                    <div class="form-group">
-                        <label for="dept-nombre">Nombre del Departamento *</label>
-                        <input type="text" id="dept-nombre" required placeholder="Ej: Depto 101">
-                    </div>
-                    
-                    <div class="form-group">
-                        <label for="dept-capacidad">Capacidad (personas) *</label>
-                        <input type="number" id="dept-capacidad" required min="1" placeholder="Ej: 4">
-                    </div>
-                    
-                    <div class="form-group">
-                        <label for="dept-descripcion">Descripción (opcional)</label>
-                        <textarea id="dept-descripcion" rows="3" placeholder="Ej: 2 dormitorios, vista al mar"></textarea>
-                    </div>
-                    
-                    <input type="hidden" id="dept-id">
-                    <button type="submit" class="btn btn-primary" id="btn-guardar-dept">Guardar Departamento</button>
-                    <button type="button" class="btn btn-secondary" id="btn-cancelar-dept" style="display:none;">Cancelar</button>
-                </form>
-            </div>
+    <!-- Contenido -->
+    <div class="main">
+      <header class="topbar">
+        <button class="btn-menu" id="btn-menu" aria-label="Menú">☰</button>
+        <span class="topbar__titulo" id="marca-nombre-top"></span>
+        <div class="topbar__busqueda" id="topbar-busqueda"></div>
+      </header>
+      <main class="contenido" id="app-content"></main>
+    </div>
+  </div>
 
-            <div class="card">
-                <div class="card-header-with-button">
-                    <h3>Departamentos Registrados</h3>
-                    <button class="btn-refresh" id="btn-refresh-departamentos">
-                        <i class="bi bi-arrow-clockwise icon"></i>
-                        Recargar
-                    </button>
-                </div>
-                <div class="loading-button hidden" id="loading-departamentos">
-                    <div class="loading-spinner"></div>
-                    <span>Cargando departamentos...</span>
-                </div>
-                <div id="lista-departamentos"></div>
-            </div>
-        </section>
-
-        <section id="tab-reservas" class="tab-content">
-            <h2>Gestión de Reservas</h2>
-            
-            <div class="card">
-                <h3>Registrar Reserva</h3>
-                <form id="form-reserva">
-                    <div class="form-group">
-                        <label for="reserva-departamento">Departamento *</label>
-                        <select id="reserva-departamento" required>
-                            <option value="">Seleccione un departamento</option>
-                        </select>
-                    </div>
-                    
-                    <div class="form-group">
-                        <label for="reserva-huesped">Nombre del Huésped *</label>
-                        <input type="text" id="reserva-huesped" required placeholder="Ej: Juan Pérez">
-                    </div>
-                    
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label for="reserva-entrada">Fecha de Entrada *</label>
-                            <input type="date" id="reserva-entrada" required>
-                        </div>
-                        
-                        <div class="form-group">
-                            <label for="reserva-salida">Fecha de Salida *</label>
-                            <input type="date" id="reserva-salida" required>
-                        </div>
-                    </div>
-                    
-                    <input type="hidden" id="reserva-id">
-                    <button type="submit" class="btn btn-primary" id="btn-guardar-reserva">Guardar Reserva</button>
-                    <button type="button" class="btn btn-secondary" id="btn-cancelar-reserva" style="display:none;">Cancelar</button>
-                </form>
-            </div>
-
-            <div class="card">
-                <div class="card-header-with-button">
-                    <h3>Reservas Registradas</h3>
-                    <button class="btn-refresh" id="btn-refresh-reservas">
-                        <i class="bi bi-arrow-clockwise icon"></i>
-                        Recargar
-                    </button>
-                </div>
-                <div class="loading-button hidden" id="loading-reservas">
-                    <div class="loading-spinner"></div>
-                    <span>Cargando reservas...</span>
-                </div>
-                <div id="lista-reservas"></div>
-            </div>
-        </section>
-
-        <section id="tab-buscador" class="tab-content">
-            <h2>Buscar Disponibilidad</h2>
-            
-            <div class="card">
-                <h3>Filtrar Departamentos Disponibles</h3>
-                <form id="form-buscar">
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label for="buscar-entrada">Fecha de Entrada</label>
-                            <input type="date" id="buscar-entrada">
-                        </div>
-                        
-                        <div class="form-group">
-                            <label for="buscar-salida">Fecha de Salida</label>
-                            <input type="date" id="buscar-salida">
-                        </div>
-                    </div>
-                    
-                    <div class="form-group">
-                        <label for="buscar-capacidad">Capacidad Mínima</label>
-                        <input type="number" id="buscar-capacidad" min="1" placeholder="Número de personas">
-                    </div>
-                    
-                    <button type="submit" class="btn btn-primary">🔍 Buscar</button>
-                    <button type="button" class="btn btn-secondary" id="btn-limpiar-busqueda">Limpiar</button>
-                </form>
-            </div>
-
-            <div class="card">
-                <h3>Resultados</h3>
-                <div id="resultados-busqueda"></div>
-            </div>
-        </section>
-
-        <section id="tab-calendario" class="tab-content">
-            <h2>📅 Calendario de Reservas</h2>
-            
-            <div class="card">
-                <div class="calendario-controles">
-                    <div class="form-group" style="max-width: 300px;">
-                        <label for="calendario-departamento">Seleccionar Departamento</label>
-                        <select id="calendario-departamento">
-                            <option value="">Todos los departamentos</option>
-                        </select>
-                    </div>
-                    
-                    <div id="info-calendario" class="info-calendario"></div>
-
-                    <!-- Controles de impresión -->
-                    <div class="form-group" style="display:flex;gap:8px;align-items:end;flex-wrap:wrap;">
-                        <div style="display:flex;gap:6px;align-items:center;">
-                            <label for="print-months-count" style="font-size:0.85rem;">Cantidad de meses a imprimir:</label>
-                            <select id="print-months-count">
-                                <option value="1">1</option>
-                                <option value="2">2</option>
-                                <option value="3">3</option>
-                                <option value="6">6</option>
-                                <option value="12">12</option>
-                            </select>
-                        </div>
-
-                        <button class="btn btn-secondary" id="btn-imprimir-calendario" style="background:white;color:#333;border:2px solid #ddd;">🖨️ Imprimir</button>
-                    </div>
-                </div>
-                
-                <div class="calendario-navegacion">
-                    <button class="btn btn-secondary" id="btn-mes-anterior">
-                        <i class="bi bi-chevron-left"></i> Anterior
-                    </button>
-                    <div class="mes-actual-container">
-                        <h3 id="mes-actual"></h3>
-                        <button class="btn btn-primary btn-small" id="btn-hoy">
-                            <i class="bi bi-calendar-check"></i> Hoy
-                        </button>
-                    </div>
-                    <button class="btn btn-secondary" id="btn-mes-siguiente">
-                        Siguiente <i class="bi bi-chevron-right"></i>
-                    </button>
-                </div>
-                
-                <div id="calendario-grid" class="calendario-grid"></div>
-                
-                <div class="calendario-leyenda">
-                    <div class="leyenda-item">
-                        <div class="dia dia-disponible"></div>
-                        <span>Disponible</span>
-                    </div>
-                    <div class="leyenda-item">
-                        <div class="dia dia-reservado"></div>
-                        <span>Reservado</span>
-                    </div>
-                    <div class="leyenda-item">
-                        <div class="dia dia-inicio-reserva"></div>
-                        <span>Inicio Reserva</span>
-                    </div>
-                    <div class="leyenda-item">
-                        <div class="dia dia-fin-reserva"></div>
-                        <span>Fin Reserva</span>
-                    </div>
-                    <div class="leyenda-item">
-                        <div class="dia dia-hoy"></div>
-                        <span>Hoy</span>
-                    </div>
-                    <div class="leyenda-item">
-                        <div class="dia rango-busqueda"></div>
-                        <span>Rango Buscado</span>
-                    </div>
-                    <div class="leyenda-item">
-                        <div class="dia inicio-busqueda"></div>
-                        <span>Entrada</span>
-                    </div>
-                    <div class="leyenda-item">
-                        <div class="dia fin-busqueda"></div>
-                        <span>Salida</span>
-                    </div>
-                </div>
-            </div>
-        </section>
-    </main>
-
-    <footer>
-        <div class="container">
-            <p>🚀 &copy; 2025 Sistema de Alquileres </p>
-        </div>
-    </footer>
-
-    <!-- Scripts con cache-busting -->
-    <script src="js/firebase-config.js?v=10&t=20251114"></script>
-    <script src="js/model.js?v=10&t=20251114"></script>
-    <script src="js/view.js?v=10&t=20251114"></script>
-    <script src="js/controller.js?v=10&t=20251114"></script>
+  <script type="module" src="src/main.js"></script>
 </body>
 </html>

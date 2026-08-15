@@ -1,0 +1,61 @@
+/* ============================================================
+   Design tokens. Cambiando estas variables re-tematizás toda
+   la app (y por cliente, vía --color-primario en la config).
+   ============================================================ */
+:root {
+  /* Color primario: lo sobreescribe la config del cliente en runtime */
+  --color-primario: #2563eb;
+  --color-primario-600: color-mix(in srgb, var(--color-primario) 88%, black);
+
+  /* Neutros */
+  --fondo: #f5f7fa;
+  --superficie: #ffffff;
+  --borde: #e2e8f0;
+  --texto: #0f172a;
+  --texto-muted: #64748b;
+
+  /* Semánticos */
+  --ok: #16a34a;
+  --ok-bg: #dcfce7;
+  --alerta: #dc2626;
+  --alerta-bg: #fee2e2;
+  --warn: #b45309;
+  --warn-bg: #fef3c7;
+  --info-bg: #e0e7ff;
+  --info-fg: #3730a3;
+
+  /* Escala de espaciado (4/8/12/16/24/32) */
+  --sp-1: 4px; --sp-2: 8px; --sp-3: 12px; --sp-4: 16px; --sp-6: 24px; --sp-8: 32px;
+
+  /* Radios y sombras */
+  --radio: 12px;
+  --radio-sm: 8px;
+  --sombra: 0 1px 2px rgba(15,23,42,.06), 0 4px 12px rgba(15,23,42,.05);
+
+  /* Tipografía */
+  --fuente: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+
+  --sidebar-ancho: 248px;
+}
+
+/* ============================================================
+   Modo oscuro. Se activa con <html data-tema="oscuro">
+   (ver core/tema.js). Solo re-mapea los tokens; el resto del
+   CSS los usa por variable así que no hace falta duplicar reglas.
+   ============================================================ */
+:root[data-tema="oscuro"] {
+  --fondo: #0f172a;
+  --superficie: #1e293b;
+  --borde: #334155;
+  --texto: #f1f5f9;
+  --texto-muted: #94a3b8;
+
+  --ok-bg: #14532d;
+  --alerta-bg: #7f1d1d;
+  --warn-bg: #78350f;
+  --info-bg: #312e81;
+  --info-fg: #c7d2fe;
+
+  --sombra: 0 1px 2px rgba(0,0,0,.4), 0 4px 14px rgba(0,0,0,.35);
+  color-scheme: dark;
+}
