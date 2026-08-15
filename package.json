@@ -3,15 +3,16 @@
   "version": "2.0.0",
   "description": "Sistema de gestión de alquileres (single-tenant, replicable por cliente)",
   "scripts": {
-    "serve": "npx serve public -l 5000",
-    "lint": "eslint public/src",
-    "deploy": "firebase deploy",
-    "deploy:hosting": "firebase deploy --only hosting",
-    "deploy:rules": "firebase deploy --only firestore:rules,firestore:indexes",
+    "serve": "npx serve . -l 5000",
+    "lint": "eslint src",
+    "deploy": "npx firebase deploy",
+    "deploy:hosting": "npx firebase deploy --only hosting",
+    "deploy:rules": "npx firebase deploy --only firestore:rules,firestore:indexes",
     "nuevo-cliente": "bash scripts/nuevo-cliente.sh"
   },
   "devDependencies": {
-    "eslint": "^9.39.5"
+    "eslint": "^9.39.5",
+    "firebase-tools": "^15.27.0"
   },
   "license": "UNLICENSED",
   "main": "index.js",

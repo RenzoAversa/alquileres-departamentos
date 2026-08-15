@@ -3,7 +3,7 @@ node_modules/
 *.log
 .DS_Store
 
-# NOTA: public/config/client.config.js SÍ se commitea.
+# NOTA: config/client.config.js SÍ se commitea.
 # Las claves web de Firebase son públicas por diseño (la seguridad real
 # está en las reglas de Firestore + Auth), y GitHub Pages necesita el
 # archivo en el repo para servir la app.
