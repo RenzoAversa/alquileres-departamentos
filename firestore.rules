@@ -1,0 +1,45 @@
+rules_version = '2';
+
+// ============================================================
+// REGLAS CON CONTROL POR ROL (single-tenant).
+// El rol vive en usuarios/{email}. Se enforza server-side:
+//   - Finanzas (cuentas, movimientos): solo dueño / encargado.
+//   - Gestión de usuarios (cambiar/quitar): solo dueño.
+//   - Operación (edificios, unidades, reservas): cualquier autenticado.
+// Nota: el alta del propio usuario está permitida (bootstrap y
+// auto-registro). Para un bloqueo estricto de auto-escalada de rol se
+// recomienda migrar a custom claims (requiere una Cloud Function).
+// ============================================================
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function auth() { return request.auth != null; }
+    function emailUid() { return request.auth.token.email.lower(); }
+
+    function rol() {
+      return exists(/databases/$(database)/documents/usuarios/$(emailUid()))
+        ? get(/databases/$(database)/documents/usuarios/$(emailUid())).data.rol
+        : 'sin_asignar';
+    }
+    function verDinero() { return rol() in ['dueño', 'encargado']; }
+    function esDueno() { return rol() == 'dueño'; }
+
+    // Usuarios / roles
+    match /usuarios/{email} {
+      allow read: if auth();
+      // Puede crearse el propio doc (bootstrap/auto-registro) o el dueño a cualquiera
+      allow create: if auth() && (email == emailUid() || esDueno());
+      // Cambiar rol o quitar: solo dueño
+      allow update, delete: if esDueno();
+    }
+
+    // Finanzas: solo dueño / encargado
+    match /cuentas/{doc}      { allow read, write: if verDinero(); }
+    match /movimientos/{doc}  { allow read, write: if verDinero(); }
+
+    // Operación: cualquier usuario autenticado
+    match /edificios/{doc}    { allow read, write: if auth(); }
+    match /unidades/{doc}     { allow read, write: if auth(); }
+    match /reservas/{doc}     { allow read, write: if auth(); }
+  }
+}
