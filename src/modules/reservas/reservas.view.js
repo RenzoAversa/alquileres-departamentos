@@ -93,6 +93,7 @@ export async function render(container) {
   let filtroPago = 'todas';
   let orden = 'entrada_desc';
   const gruposAbiertos = new Set();
+  const gruposAbiertosFinalizadas = new Set();
   const seccion = el('div', { class: 'card' });
   const headerLista = el('div', { class: 'finanzas-head' }, [
     el('h3', {}, 'Reservas registradas'),
@@ -126,7 +127,26 @@ export async function render(container) {
     contenedor: listaCont,
     porPagina: 20,
     mensajeVacio: 'No hay reservas para este filtro.',
-    renderItem: (grupo) => renderGrupo(grupo)
+    renderItem: (grupo) => renderGrupo(grupo, gruposAbiertos)
+  });
+
+  // ---- Reservas finalizadas: mismo listado, aparte, para no mezclar lo
+  // que ya terminó con lo activo. Una reserva "termina" cuando ya pasó
+  // su fecha+hora de salida (no depende del estado operativo).
+  const seccionFin = el('div', { class: 'card' });
+  const headerFin = el('div', { class: 'finanzas-head' }, [
+    el('h3', {}, 'Reservas finalizadas'),
+    botonRecargar(() => cargarLista())
+  ]);
+  const listaContFin = el('div', {});
+  seccionFin.append(headerFin, listaContFin);
+  container.append(seccionFin);
+
+  const paginadoFin = crearPaginado({
+    contenedor: listaContFin,
+    porPagina: 20,
+    mensajeVacio: 'Todavía no hay reservas finalizadas.',
+    renderItem: (grupo) => renderGrupo(grupo, gruposAbiertosFinalizadas)
   });
 
   function renderFila(r) {
@@ -172,11 +192,11 @@ export async function render(container) {
 
   // Menú desplegable por edificio/departamento: agrupa y sólo pinta el
   // detalle cuando se abre (mismo trabajo, mucho más legible de un vistazo).
-  // Qué grupos están abiertos vive en `gruposAbiertos` (afuera de esta
-  // función), así sobrevive a los recargos de la lista después de guardar,
+  // Qué grupos están abiertos vive en un Set (afuera de esta función, uno
+  // por card), así sobrevive a los recargos de la lista después de guardar,
   // pagar o eliminar una reserva: antes cada recarga los volvía a cerrar.
-  function renderGrupo(grupo) {
-    const abierto = gruposAbiertos.has(grupo.key);
+  function renderGrupo(grupo, abiertosSet) {
+    const abierto = abiertosSet.has(grupo.key);
     const body = el('div', { class: 'reserva-grupo__body' }, grupo.reservas.map((r) => renderFila(r)));
     body.hidden = !abierto;
     const grupoEl = el('div', { class: `reserva-grupo ${abierto ? 'is-abierto' : ''}` }, [
@@ -185,7 +205,7 @@ export async function render(container) {
         onClick: () => {
           body.hidden = !body.hidden;
           grupoEl.classList.toggle('is-abierto', !body.hidden);
-          if (body.hidden) gruposAbiertos.delete(grupo.key); else gruposAbiertos.add(grupo.key);
+          if (body.hidden) abiertosSet.delete(grupo.key); else abiertosSet.add(grupo.key);
         }
       }, [
         el('span', { class: 'reserva-grupo__titulo' }, grupo.titulo),
@@ -197,13 +217,23 @@ export async function render(container) {
     return grupoEl;
   }
 
+  // Terminó cuando ya pasó su fecha+hora de salida, sin importar el estado
+  // operativo (pendiente/confirmada/etc) ni si está pagada.
+  function estaFinalizada(r) {
+    const horaSalida = r.horaSalida || HORA_SALIDA_DEFAULT;
+    return new Date(`${r.fechaSalida}T${horaSalida}`).getTime() <= Date.now();
+  }
+
   async function cargarLista() {
     let reservas = await reservasService.getAll();
     if (verDinero && filtroPago !== 'todas') {
       reservas = reservas.filter((r) => estadoPagoDe(r.pagado, r.precioTotal) === filtroPago);
     }
     reservas = ordenarReservas(reservas, orden);
-    paginado.setItems(agruparPorPropiedad(reservas, unidades, edificios));
+    const activas = reservas.filter((r) => !estaFinalizada(r));
+    const finalizadas = reservas.filter((r) => estaFinalizada(r));
+    paginado.setItems(agruparPorPropiedad(activas, unidades, edificios));
+    paginadoFin.setItems(agruparPorPropiedad(finalizadas, unidades, edificios));
   }
   cargarLista();
 }
