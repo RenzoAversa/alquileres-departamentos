@@ -40,8 +40,15 @@ export async function render(container) {
   const campoHuespedes = campo('Huéspedes', inHuespedes);
   campoHuespedes.classList.add('disponibilidad-campo-huespedes');
 
+  // div, no campo()/<label>: un <label> sin `for` reenvía cualquier click
+  // en su "espacio muerto" (el texto del resumen, por ejemplo) al primer
+  // control enfocable de adentro -el botón "‹" del calendario-, haciendo
+  // que un tap fuera de un día retroceda el mes solo. El calendario ya
+  // maneja su propio foco por día, no necesita el forwarding de <label>.
+  const campoFechas = el('div', { class: 'form__campo' }, [el('span', {}, 'Fechas'), selectorFechas.element]);
+
   const form = el('form', { class: 'card form' }, [
-    campo('Fechas', selectorFechas.element),
+    campoFechas,
     campoHuespedes,
     el('button', { class: 'btn btn--primary', type: 'submit' }, 'Buscar disponibles')
   ]);
