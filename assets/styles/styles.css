@@ -900,3 +900,8 @@ input:not([type="checkbox"]):not([type="radio"]):focus, select:focus, textarea:f
   transform: none; filter: none;
   box-shadow: 0 1px 2px rgba(15, 23, 42, .18), inset 0 1px 0 rgba(255, 255, 255, .18);
 }
+/* El rango buscado se pinta en verde, no en el azul de las reservas
+   reales: reusa el mismo degradé/cabos/medio-día de .cal-banda, solo
+   recoloreando sus dos variables (así el ::after del bleed de medio-fin
+   también sale verde, sin duplicar reglas). */
+.cal-banda--busqueda { --cal-banda-alta: color-mix(in srgb, var(--ok) 86%, white); --cal-banda-baja: var(--ok); }

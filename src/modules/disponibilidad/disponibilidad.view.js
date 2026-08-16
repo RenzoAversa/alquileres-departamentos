@@ -62,13 +62,18 @@ function etiquetaEncaje({ tipo, pegaAntes }) {
   return { texto: 'Sin encaje', clase: 'badge--muted' };
 }
 
-// Mini calendario del mes de `entradaISO`, con las reservas de esta unidad
+// Mini calendario del mes de `entrada`, con las reservas de esta unidad
 // dibujadas igual que el tape chart de Calendario: mismas bandas continuas,
 // mismo medio-día en check-in/check-out (tramosDeMes + clases .cal-*). No
 // se agrega ningún estilo de calendario nuevo, solo una versión de una
 // fila sola (sin columna de departamento, ya la dice el título de la card).
-function miniCalendario(reservasUnidad, entradaISO) {
-  const [anio, mes] = entradaISO.split('-').map(Number);
+//
+// El rango buscado (entrada→salida) se dibuja como una banda más, en verde
+// (cal-banda--busqueda), tratándola igual que una reserva real para que
+// tramosDeMes() calcule sus cabos y su medio-día — así se ve exactamente
+// dónde encaja contra las reservas vecinas (azules).
+function miniCalendario(reservasUnidad, entrada, salida) {
+  const [anio, mes] = entrada.split('-').map(Number);
   const dias = diasDelMes(anio, mes);
   const primerDia = dias[0];
   const ultimoDia = dias[dias.length - 1];
@@ -86,7 +91,9 @@ function miniCalendario(reservasUnidad, entradaISO) {
   });
   const thead = el('thead', {}, el('tr', {}, headDias));
 
-  const tramos = tramosDeMes(reservasUnidad.filter((r) => r.estado !== 'cancelada'), dias, primerDia, ultimoDia);
+  const tramosReservas = tramosDeMes(reservasUnidad.filter((r) => r.estado !== 'cancelada'), dias, primerDia, ultimoDia);
+  const tramoBusqueda = tramosDeMes([{ fechaEntrada: entrada, fechaSalida: salida, esBusqueda: true }], dias, primerDia, ultimoDia);
+  const tramos = [...tramosReservas, ...tramoBusqueda];
   const porInicio = new Map();
   tramos.forEach((t) => { if (!porInicio.has(t.inicio)) porInicio.set(t.inicio, t); });
 
@@ -110,8 +117,10 @@ function miniCalendario(reservasUnidad, entradaISO) {
 
 function bandaMini(tramo) {
   const r = tramo.reserva;
-  const nombre = (r.huesped?.nombre || '').trim() || 'Sin nombre';
+  const esBusqueda = !!r.esBusqueda;
+  const nombre = esBusqueda ? 'Tu reserva' : ((r.huesped?.nombre || '').trim() || 'Sin nombre');
   const clases = ['cal-banda', 'cal-banda--mini'];
+  if (esBusqueda) clases.push('cal-banda--busqueda');
   if (tramo.vieneDeAntes) clases.push('cal-banda--desde-antes');
   if (tramo.sigueDespues) clases.push('cal-banda--hasta-despues');
   if (tramo.medioInicio) clases.push('cal-banda--medio-inicio');
@@ -217,7 +226,7 @@ export async function render(container) {
           ]),
           el('span', { class: `badge ${etiqueta.clase}` }, etiqueta.texto)
         ]),
-        miniCalendario(rs, entrada),
+        miniCalendario(rs, entrada, salida),
         gaps.length ? el('p', { class: 'muted small disponibilidad-gaps' }, gaps.join(' · ')) : null,
         el('div', { class: 'disponibilidad-tarjeta__pie' }, [
           el('div', { style: 'text-align:right' }, [
