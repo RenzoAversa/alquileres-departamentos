@@ -905,3 +905,6 @@ input:not([type="checkbox"]):not([type="radio"]):focus, select:focus, textarea:f
    recoloreando sus dos variables (así el ::after del bleed de medio-fin
    también sale verde, sin duplicar reglas). */
 .cal-banda--busqueda { --cal-banda-alta: color-mix(in srgb, var(--ok) 86%, white); --cal-banda-baja: var(--ok); }
+
+/* Cuerpo desplegado de una tarjeta de "no disponible" en Disponibilidad. */
+.disponibilidad-ocupada__cuerpo { margin-top: var(--sp-3); }
