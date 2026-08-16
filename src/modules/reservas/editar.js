@@ -70,7 +70,7 @@ export function abrirEdicionReserva(reserva, unidades, onGuardar) {
     campo('Huésped', inHuesped, { requerido: true }),
     campo('Teléfono', inTelefono),
     campo('Email', inEmail),
-    campo('Fechas', selectorFechas.element, { requerido: true }),
+    campo('Fechas', selectorFechas.element, { requerido: true, tag: 'div' }),
     fila([campo('Hora de entrada', inHoraEntrada), campo('Hora de salida', inHoraSalida)]),
     campo('Canal', selCanal),
     preview,

@@ -139,11 +139,18 @@ export function boton(texto, { variante = 'primary', tamano = '', tipo = 'button
 // Campo de formulario con label. `opciones.requerido` agrega el asterisco
 // visual y la clase de estilo; no valida nada por sí solo — combinalo con
 // `validarFormulario()` para la validación real.
-export function campo(label, input, { requerido = false } = {}) {
+//
+// `opciones.tag` ('label' por default): un <label> sin `for` reenvía
+// cualquier click en su "espacio muerto" (texto, huecos) al primer control
+// enfocable de adentro. Para widgets custom con varios controles propios
+// (el calendario de selector-fechas.js, el mapa) eso es un bug — un tap
+// fuera de un control real dispara el primero (ej. el botón "‹" del
+// calendario, moviendo el mes solo). Pasá `tag: 'div'` en esos casos.
+export function campo(label, input, { requerido = false, tag = 'label' } = {}) {
   const textoLabel = requerido
     ? [label, el('span', { class: 'form__requerido', 'aria-hidden': 'true' }, ' *')]
     : label;
-  return el('label', { class: `form__campo${requerido ? ' form__campo--requerido' : ''}` }, [
+  return el(tag, { class: `form__campo${requerido ? ' form__campo--requerido' : ''}` }, [
     el('span', {}, textoLabel),
     input
   ]);
