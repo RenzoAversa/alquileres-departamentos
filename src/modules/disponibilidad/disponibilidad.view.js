@@ -135,10 +135,9 @@ export async function render(container) {
   container.append(el('h1', { class: 'page-title' }, 'Buscar disponibilidad'));
 
   // Mismo calendario que Reservas, solo que acá todavía no hay una unidad
-  // elegida: arranca sin ocupación marcada (mostrarSinUnidad) y deja elegir
-  // entrada/salida libremente.
+  // elegida: arranca sin ocupación marcada (mostrarSinUnidad) y sin ningún
+  // rango preseleccionado, para que el usuario elija las fechas a buscar.
   const selectorFechas = crearSelectorFechas({ mostrarSinUnidad: true });
-  selectorFechas.setRangoInicial(hoyISO(), masDias(hoyISO(), 2));
 
   const inHuespedes = el('input', { name: 'huespedes', type: 'number', min: '1', value: '1' });
   const campoHuespedes = campo('Huéspedes', inHuespedes);
