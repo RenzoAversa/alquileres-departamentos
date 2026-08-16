@@ -14,6 +14,7 @@ import { abrirDetalleReserva } from './detalle.js';
 import { abrirEdicionReserva } from './editar.js';
 import { crearSelectorFechas } from './selector-fechas.js';
 import { sesion } from '../../core/sesion.js';
+import { hoyISO } from '../../core/metricas.js';
 
 const HORA_ENTRADA_DEFAULT = '15:00';
 const HORA_SALIDA_DEFAULT = '10:00';
@@ -78,7 +79,7 @@ export async function render(container) {
 
   container.append(el('div', { class: 'page-head' }, [
     el('h1', { class: 'page-title' }, 'Reservas'),
-    boton('Nueva reserva', { variante: 'accion', icono: '+', onClick: () => abrirAltaReserva(unidades, cargarLista) })
+    boton('Nueva reserva', { variante: 'accion', icono: '+', onClick: () => abrirAltaReserva(unidades, cargarLista, null, { gestionarPagos, cuentas }) })
   ]));
 
   // Si venimos del buscador de disponibilidad o del mapa, abrimos el
@@ -86,7 +87,7 @@ export async function render(container) {
   const preset = store.get('reservaPreset');
   if (preset) {
     store.set('reservaPreset', null);
-    abrirAltaReserva(unidades, cargarLista, preset);
+    abrirAltaReserva(unidades, cargarLista, preset, { gestionarPagos, cuentas });
     toast('Datos precargados desde el buscador', 'ok');
   }
 
@@ -248,7 +249,7 @@ export async function render(container) {
   cargarLista();
 }
 
-function abrirAltaReserva(unidades, onGuardar, preset = null) {
+function abrirAltaReserva(unidades, onGuardar, preset = null, { gestionarPagos = false, cuentas = [] } = {}) {
   const selUnidad = el('select', {}, [
     el('option', { value: '' }, 'Seleccioná un departamento'),
     ...unidades.map((u) => el('option', { value: u.id, selected: (u.id === preset?.unidadId) || undefined }, u.nombre))
@@ -256,7 +257,7 @@ function abrirAltaReserva(unidades, onGuardar, preset = null) {
   const inHuesped = el('input', { placeholder: 'Nombre y apellido' });
   const inTelefono = el('input', { placeholder: '+54 9 ...' });
   const inEmail = el('input', { type: 'email', placeholder: 'nombre@mail.com' });
-  const selectorFechas = crearSelectorFechas({ onCambio: () => actualizarResumenPrecio() });
+  const selectorFechas = crearSelectorFechas({ onCambio: () => { actualizarResumenPrecio(); actualizarSeccionPagoRetro(); } });
   const inHoraEntrada = el('input', { type: 'time', value: HORA_ENTRADA_DEFAULT });
   const inHoraSalida = el('input', { type: 'time', value: HORA_SALIDA_DEFAULT });
   const selCanal = selectCanal();
@@ -266,6 +267,26 @@ function abrirAltaReserva(unidades, onGuardar, preset = null) {
   const resumenPrecio = el('div', { class: 'muted small resumen-precio', hidden: true }, '');
   const chkPrecioManual = el('input', { type: 'checkbox' });
   const inTotalManual = el('input', { type: 'number', min: '0', step: 'any', disabled: true });
+
+  // ---- Pago inline para reservas retroactivas (salida ya pasada): evita
+  // tener que guardar y volver a abrir "Ver / Pagar" para el mismo caso.
+  // Solo tiene sentido si el usuario puede gestionar pagos.
+  const inMontoRetro = el('input', { type: 'number', min: '0', step: 'any' });
+  const selCuentaRetro = el('select', {}, cuentas.map((c) => el('option', { value: c.id }, c.nombre)));
+  const inFechaRetro = el('input', { type: 'date' });
+  const inNotaRetro = el('input', { type: 'text', placeholder: 'Nota (opcional)' });
+  let montoRetroTocado = false;
+  inMontoRetro.addEventListener('input', () => { montoRetroTocado = true; });
+  const seccionPagoRetro = el('div', { class: 'card card--plano', hidden: true }, [
+    el('h4', { class: 'detalle-sub' }, 'Registrar pago'),
+    el('p', { class: 'muted small' }, 'Esta reserva ya terminó. Si el huésped pagó, cargalo acá y te ahorrás un paso.'),
+    ...(cuentas.length
+      ? [
+          fila([campo('Monto pagado', inMontoRetro), campo('Método de pago', selCuentaRetro)]),
+          fila([campo('Fecha de pago', inFechaRetro), campo('Nota', inNotaRetro)])
+        ]
+      : [el('p', { class: 'muted small' }, 'Para registrar pagos, primero creá cuentas en Finanzas.')])
+  ]);
 
   function calcularTotal() {
     const { entrada, salida } = selectorFechas.getRango();
@@ -280,6 +301,20 @@ function abrirAltaReserva(unidades, onGuardar, preset = null) {
     resumenPrecio.hidden = false;
     resumenPrecio.textContent = `${money(unidad.precioNoche || 0)} x ${n} noche(s) = ${money(totalCalc)}`;
     if (!chkPrecioManual.checked) inTotalManual.value = totalCalc;
+  }
+
+  function esReservaRetro() {
+    const { salida } = selectorFechas.getRango();
+    return !!salida && salida < hoyISO();
+  }
+
+  function actualizarSeccionPagoRetro() {
+    const mostrar = gestionarPagos && esReservaRetro();
+    seccionPagoRetro.hidden = !mostrar;
+    if (mostrar && cuentas.length) {
+      if (!montoRetroTocado) inMontoRetro.value = calcularTotal().totalCalc || '';
+      if (!inFechaRetro.value) inFechaRetro.value = hoyISO();
+    }
   }
 
   chkPrecioManual.addEventListener('change', () => {
@@ -301,6 +336,7 @@ function abrirAltaReserva(unidades, onGuardar, preset = null) {
     resumenPrecio,
     el('label', { class: 'form__check' }, [chkPrecioManual, el('span', {}, 'Modificar precio total')]),
     campo('Total de la reserva', inTotalManual, { requerido: true }),
+    seccionPagoRetro,
     el('div', { class: 'modal__acciones' }, [
       btnCancelar,
       btn
@@ -313,6 +349,7 @@ function abrirAltaReserva(unidades, onGuardar, preset = null) {
     selectorFechas.setUnidad(preset.unidadId).then(() => {
       if (preset?.entrada && preset?.salida) selectorFechas.setRangoInicial(preset.entrada, preset.salida);
       actualizarResumenPrecio();
+      actualizarSeccionPagoRetro();
     });
   }
 
@@ -320,18 +357,32 @@ function abrirAltaReserva(unidades, onGuardar, preset = null) {
     e.preventDefault();
     const unidadId = selUnidad.value;
     const { entrada, salida } = selectorFechas.getRango();
+    const total = chkPrecioManual.checked ? parseFloat(inTotalManual.value) : calcularTotal().totalCalc;
+    const precioManual = chkPrecioManual.checked;
+    const retro = esReservaRetro();
+    const registraPagoRetro = retro && gestionarPagos && cuentas.length > 0 && inMontoRetro.value !== '';
+    const montoPagoRetro = registraPagoRetro ? parseFloat(inMontoRetro.value) : 0;
 
     const errores = validarFormulario([
       { elemento: selUnidad, validar: () => !unidadId && 'Elegí un departamento.' },
       { elemento: inHuesped, validar: () => !inHuesped.value.trim() && 'Ingresá el nombre del huésped.' },
       { elemento: inEmail, validar: () => inEmail.value.trim() && !emailValido(inEmail.value) && 'Ingresá un email válido.' },
       { elemento: selectorFechas.element, validar: () => !(entrada && salida) && 'Elegí las fechas de entrada y salida en el calendario.' },
-      { elemento: inTotalManual, validar: () => (inTotalManual.value === '' || isNaN(Number(inTotalManual.value)) || Number(inTotalManual.value) < 0) && 'Ingresá un total válido (0 o más).' }
+      { elemento: inTotalManual, validar: () => (inTotalManual.value === '' || isNaN(Number(inTotalManual.value)) || Number(inTotalManual.value) < 0) && 'Ingresá un total válido (0 o más).' },
+      { elemento: inMontoRetro, validar: () => {
+          if (!registraPagoRetro) return null;
+          if (isNaN(montoPagoRetro) || montoPagoRetro < 0) return 'Ingresá un monto de pago válido (0 o más).';
+          if (!isNaN(total) && montoPagoRetro > total + 0.001) return `El pago no puede superar el total de la reserva (${money(total)}).`;
+          return null;
+        }
+      }
     ]);
     if (errores.length) return;
 
-    const total = chkPrecioManual.checked ? parseFloat(inTotalManual.value) : calcularTotal().totalCalc;
-    const precioManual = chkPrecioManual.checked;
+    // Una reserva cuya salida ya pasó arranca directamente "finalizada":
+    // el campo `estado` no afecta notificaciones/calendario/disponibilidad
+    // (solo se chequea contra 'cancelada'), es puramente informativo.
+    const estado = retro ? 'finalizada' : 'confirmada';
 
     btn.disabled = true; btn.textContent = 'Guardando…';
     btnCancelar.disabled = true;
@@ -347,7 +398,7 @@ function abrirAltaReserva(unidades, onGuardar, preset = null) {
       const unidad = unidades.find((u) => u.id === unidadId);
       const n = noches(entrada, salida);
 
-      await reservasService.create({
+      const nueva = await reservasService.create({
         unidadId,
         unidadNombre: unidad?.nombre || '',
         edificioId: unidad?.edificioId || null,
@@ -356,8 +407,21 @@ function abrirAltaReserva(unidades, onGuardar, preset = null) {
         horaEntrada: inHoraEntrada.value || HORA_ENTRADA_DEFAULT,
         horaSalida: inHoraSalida.value || HORA_SALIDA_DEFAULT,
         precioTotal: total, precioManual, pagado: 0, saldo: total, estadoPago: 'sin_pagar',
-        estado: 'confirmada', canal: selCanal.value
+        estado, canal: selCanal.value
       });
+
+      if (registraPagoRetro && montoPagoRetro > 0) {
+        try {
+          await reservasService.registrarPago(nueva, {
+            monto: montoPagoRetro, cuentaId: selCuentaRetro.value,
+            fecha: inFechaRetro.value || hoyISO(), nota: inNotaRetro.value.trim()
+          });
+        } catch (err) {
+          console.error(err);
+          toast('La reserva se guardó, pero el pago no se pudo registrar. Cargalo desde "Ver / Pagar".', 'alerta');
+        }
+      }
+
       toast('Reserva guardada', 'ok');
       modal.cerrar();
       if (onGuardar) onGuardar();

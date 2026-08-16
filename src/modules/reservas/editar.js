@@ -9,6 +9,7 @@
 import { reservasService } from '../../services/reservas.service.js';
 import { el, toast, confirmar, money, noches, abrirModal, boton, campo, validarFormulario } from '../../core/ui.js';
 import { crearSelectorFechas } from './selector-fechas.js';
+import { hoyISO } from '../../core/metricas.js';
 
 const HORA_ENTRADA_DEFAULT = '15:00';
 const HORA_SALIDA_DEFAULT = '10:00';
@@ -85,6 +86,11 @@ export function abrirEdicionReserva(reserva, unidades, onGuardar) {
   const modal = abrirModal(form, { ancho: true });
 
   selectorFechas.setUnidad(reserva.unidadId).then(() => {
+    // Si la reserva YA es retroactiva (se cargó con fecha pasada), no tiene
+    // sentido pedir confirmación de nuevo por datos que ya existen.
+    if (reserva.fechaSalida && reserva.fechaSalida < hoyISO()) {
+      selectorFechas.activarModoRetroSinConfirmar();
+    }
     selectorFechas.setRangoInicial(reserva.fechaEntrada, reserva.fechaSalida);
     actualizarPreview();
   });
@@ -122,7 +128,7 @@ export function abrirEdicionReserva(reserva, unidades, onGuardar) {
         return;
       }
 
-      await reservasService.editar(reserva, {
+      const cambios = {
         unidadId: unidad.id,
         unidadNombre: unidad.nombre || '',
         edificioId: unidad.edificioId || null,
@@ -133,7 +139,19 @@ export function abrirEdicionReserva(reserva, unidades, onGuardar) {
         horaSalida: inHoraSalida.value || HORA_SALIDA_DEFAULT,
         precioManual,
         canal: selCanal.value
-      }, total);
+      };
+      // El estado operativo sigue a la fecha real, salvo que el usuario haya
+      // cancelado la reserva a mano (eso nunca se pisa acá). Si la nueva
+      // salida quedó en el pasado, pasa a 'finalizada'; si el auto-estado
+      // 'finalizada' deja de corresponder porque la salida volvió a futuro,
+      // vuelve a 'confirmada'.
+      if (reserva.estado !== 'cancelada') {
+        const esRetro = salida < hoyISO();
+        if (esRetro) cambios.estado = 'finalizada';
+        else if (reserva.estado === 'finalizada') cambios.estado = 'confirmada';
+      }
+
+      await reservasService.editar(reserva, cambios, total);
 
       toast('Reserva actualizada', 'ok');
       modal.cerrar();

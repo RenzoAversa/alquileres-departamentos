@@ -856,6 +856,14 @@ input:not([type="checkbox"]):not([type="radio"]):focus, select:focus, textarea:f
   background: linear-gradient(to right, var(--alerta) 50%, color-mix(in srgb, var(--color-primario) 18%, var(--superficie)) 50%);
 }
 .selector-fechas__resumen { margin-top: 2px; }
+/* Día pasado desbloqueado por el modo retroactivo: mismo color de
+   ocupación que un día normal, pero distinguible con borde punteado
+   y algo atenuado. */
+.selector-fechas__dia.is-pasado-habilitado { border-style: dashed; opacity: .72; }
+.selector-fechas__aviso-retro {
+  background: var(--warn-bg); color: var(--warn); border: 1px solid var(--warn);
+  border-radius: var(--radio-sm); padding: 6px 10px; font-size: .8rem; font-weight: 600;
+}
 @media (max-width: 480px) {
   .selector-fechas__dia { font-size: .75rem; }
 }

@@ -9,20 +9,33 @@
 //   sel.getRango()                     // { entrada, salida }
 // ============================================================
 import { reservasService } from '../../services/reservas.service.js';
-import { el, toast, noches } from '../../core/ui.js';
+import { el, toast, confirmar, noches } from '../../core/ui.js';
 import { hoyISO, masDias, diasDelMes, diaSemana } from '../../core/metricas.js';
 
 const MESES = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+
+// Cuánto para atrás se puede cargar una reserva retroactiva: un tope
+// generoso que evita errores groseros de tipeo (ej. año equivocado) sin
+// molestar el uso real de "me olvidé de cargar esta reserva".
+const DIAS_LIMITE_RETRO = 365;
 
 export function crearSelectorFechas({ onCambio, excluirId = null } = {}) {
   let unidadId = null;
   const cache = new Map(); // unidadId -> reservas[]
   const hoy = hoyISO();
+  const limiteRetro = masDias(hoy, -DIAS_LIMITE_RETRO);
   let [anioActual, mesActual] = hoy.split('-').map(Number);
   let entrada = null;
   let salida = null;
+  // Permiso de "reserva retroactiva": arranca apagado, se prende con la
+  // confirmación del usuario al tocar un día pasado, y dura toda la vida
+  // de este selector (una instancia por apertura de modal, así que se
+  // resetea solo la próxima vez que se abra el formulario).
+  let modoRetro = false;
+  let preguntandoRetro = false;
 
   const mensaje = el('p', { class: 'muted small' }, 'Elegí un departamento para ver su disponibilidad');
+  const avisoRetro = el('div', { class: 'selector-fechas__aviso-retro', hidden: true }, 'Modo reserva previa activado');
   // Los botones de navegación y el título del mes se crean UNA sola vez: si se
   // recrean en cada pintarCalendario() (como antes), un tap sobre un día queda
   // mid-rebuild y el navegador puede resolver el click sintético (ghost click,
@@ -37,7 +50,7 @@ export function crearSelectorFechas({ onCambio, excluirId = null } = {}) {
   const grillaSemana = el('div', { class: 'selector-fechas__semana' },
     ['D', 'L', 'M', 'M', 'J', 'V', 'S'].map((d) => el('span', {}, d)));
   const grilla = el('div', { class: 'selector-fechas__grid' });
-  const calendario = el('div', { class: 'selector-fechas__cal', hidden: true }, [cabecera, grillaSemana, grilla]);
+  const calendario = el('div', { class: 'selector-fechas__cal', hidden: true }, [cabecera, avisoRetro, grillaSemana, grilla]);
   const resumen = el('div', { class: 'selector-fechas__resumen muted small' }, '');
   const element = el('div', { class: 'selector-fechas' }, [mensaje, calendario, resumen]);
 
@@ -67,8 +80,10 @@ export function crearSelectorFechas({ onCambio, excluirId = null } = {}) {
     });
   }
 
-  function estadoDia(iso, reservas) {
-    if (iso < hoy) return 'pasado';
+  // Ocupación real de un día, sin importar si es pasado o futuro: la usan
+  // tanto estadoDia() (para pintar/bloquear) como el desbloqueo retroactivo
+  // (un día pasado sigue rechazándose si ya está ocupado).
+  function estadoOcupacionDia(iso, reservas) {
     const esCheckin = reservas.some((r) => r.estado !== 'cancelada' && (!excluirId || r.id !== excluirId) && r.fechaEntrada === iso);
     const esCheckout = reservas.some((r) => r.estado !== 'cancelada' && (!excluirId || r.id !== excluirId) && r.fechaSalida === iso);
     if (esCheckin && esCheckout) return 'full';
@@ -76,6 +91,11 @@ export function crearSelectorFechas({ onCambio, excluirId = null } = {}) {
     if (esCheckout) return 'checkout';
     if (nocheOcupada(iso, reservas)) return 'ocupado';
     return 'libre';
+  }
+
+  function estadoDia(iso, reservas) {
+    if (iso < hoy && !modoRetro) return 'pasado';
+    return estadoOcupacionDia(iso, reservas);
   }
 
   // ¿Hay alguna noche ocupada dentro de [desde, hasta)?
@@ -89,6 +109,28 @@ export function crearSelectorFechas({ onCambio, excluirId = null } = {}) {
   }
 
   function clickDia(iso, reservas) {
+    // Día pasado con el modo retroactivo todavía apagado: pedir confirmación
+    // antes de desbloquear. La confirmación se pide ACÁ (al tocar el día),
+    // no al guardar, para que el usuario sepa de entrada que puede cargarla.
+    if (iso < hoy && !modoRetro) {
+      if (preguntandoRetro) return; // ya hay un modal de confirmación abierto
+      if (iso < limiteRetro) {
+        toast('No se pueden cargar reservas de más de un año atrás', 'alerta');
+        return;
+      }
+      preguntandoRetro = true;
+      confirmar('¿Seguro que querés iniciar una reserva previa al día de hoy?', {
+        variante: 'guardar', textoConfirmar: 'Sí, habilitar'
+      }).then((ok) => {
+        preguntandoRetro = false;
+        if (!ok) return;
+        modoRetro = true;
+        pintarCalendario(); // repinta ya mismo el cartel y el estilo de los días pasados
+        clickDia(iso, reservas); // reintenta el mismo click, ahora desbloqueado
+      });
+      return;
+    }
+
     const estado = estadoDia(iso, reservas);
     if (estado === 'pasado' || estado === 'ocupado' || estado === 'full') return;
 
@@ -140,6 +182,7 @@ export function crearSelectorFechas({ onCambio, excluirId = null } = {}) {
   function pintarCalendario() {
     if (!unidadId) { calendario.hidden = true; mensaje.hidden = false; return; }
     mensaje.hidden = true; calendario.hidden = false;
+    avisoRetro.hidden = !modoRetro;
     reservasActual = cache.get(unidadId) || [];
 
     tituloMes.textContent = `${MESES[mesActual - 1]} ${anioActual}`;
@@ -161,13 +204,21 @@ export function crearSelectorFechas({ onCambio, excluirId = null } = {}) {
       const iso = dias[i - primerDow];
       const estado = estadoDia(iso, reservasActual);
       const clases = ['selector-fechas__dia', `selector-fechas__dia--${estado}`];
+      // Día pasado pero desbloqueado por el modo retroactivo: se pinta con
+      // su color real de ocupación, pero distinguible de un día futuro.
+      if (iso < hoy && estado !== 'pasado') clases.push('is-pasado-habilitado');
       if (entrada && iso === entrada) clases.push('is-entrada');
       if (salida && iso === salida) clases.push('is-salida');
       if (entrada && !salida && iso > entrada) clases.push('is-en-rango-tentativo');
       if (entrada && salida && iso > entrada && iso < salida) clases.push('is-en-rango');
       celda.className = clases.join(' ');
       celda.textContent = String(Number(iso.slice(8)));
-      celda.disabled = estado === 'pasado';
+      // OJO: nunca poner celda.disabled = true acá. Un <button disabled> no
+      // dispara 'click' (ni real ni sintético), así que un día "pasado" jamás
+      // podría abrir la confirmación para desbloquearlo. El bloqueo real vive
+      // en clickDia(); acá solo se pinta el cursor "not-allowed" por CSS,
+      // igual que ya se hacía con los días ocupados/full.
+      celda.disabled = false;
       celda.dataset.iso = iso;
     }
     // Celdas del pool que sobran este mes (meses de 5 semanas vs 6): se ocultan
@@ -211,6 +262,10 @@ export function crearSelectorFechas({ onCambio, excluirId = null } = {}) {
     setUnidad,
     setRangoInicial,
     getRango: () => ({ entrada, salida }),
+    // Para editar una reserva que YA es retroactiva (se cargó con fecha
+    // pasada): no tiene sentido volver a pedir confirmación por datos que
+    // ya existen, así que esto prende el modo sin pasar por el modal.
+    activarModoRetroSinConfirmar() { modoRetro = true; pintarCalendario(); },
     reset() { entrada = null; salida = null; pintarCalendario(); pintarResumen(); emitCambio(); }
   };
 }
