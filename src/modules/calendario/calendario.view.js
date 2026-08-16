@@ -15,9 +15,10 @@ import { reservasService, estadoPagoDe } from '../../services/reservas.service.j
 import { cuentasService } from '../../services/cuentas.service.js';
 import { abrirDetalleReserva } from '../reservas/detalle.js';
 import { sesion } from '../../core/sesion.js';
-import { masDias, diasDe, hoyISO, diaSemana, letraDia } from '../../core/metricas.js';
+import { diasDe, hoyISO, diaSemana, letraDia } from '../../core/metricas.js';
 import { el, spinner, vacio, fecha, money, compararPiso } from '../../core/ui.js';
 import { fechaCorta } from '../notificaciones/tabs/_comunes.js';
+import { tramosDeMes } from '../../core/calendario-tape.js';
 
 const pad = (n) => String(n).padStart(2, '0');
 
@@ -110,39 +111,6 @@ export async function render(container) {
 
   // Estado de pago, tolerante a reservas viejas sin el campo guardado.
   const pagoDe = (r) => r.estadoPago || estadoPagoDe(r.pagado, r.precioTotal);
-
-  // Convierte las reservas de una unidad en tramos dibujables dentro del mes.
-  function tramosDe(reservas, dias, primerDia, ultimoDia) {
-    const indice = new Map(dias.map((d, i) => [d, i]));
-    return reservas
-      .map((r) => {
-        const ultimaNoche = masDias(r.fechaSalida, -1); // el día de salida no ocupa noche
-        const desde = r.fechaEntrada < primerDia ? primerDia : r.fechaEntrada;
-        const hasta = ultimaNoche > ultimoDia ? ultimoDia : ultimaNoche;
-        if (hasta < desde) return null; // no deja ninguna noche en este mes
-        const i0 = indice.get(desde);
-        const i1 = indice.get(hasta);
-        if (i0 == null || i1 == null) return null;
-        const vieneDeAntes = r.fechaEntrada < primerDia;
-        const sigueDespues = ultimaNoche > ultimoDia;
-        return {
-          reserva: r,
-          inicio: i0,
-          largo: i1 - i0 + 1,
-          vieneDeAntes,
-          sigueDespues,
-          // Entra/sale "a mitad del día": la banda arranca desde la mitad
-          // de la celda de entrada y sigue hasta la mitad de la celda
-          // siguiente a la última noche (el propio día de salida), en vez
-          // de ocupar la celda completa. Solo si hay margen visual para
-          // eso (no aplica si la estadía sigue fuera del mes mostrado).
-          medioInicio: !vieneDeAntes,
-          medioFin: !sigueDespues && (i1 + 1) < dias.length
-        };
-      })
-      .filter(Boolean)
-      .sort((a, b) => a.inicio - b.inicio);
-  }
 
   function banda(tramo) {
     const r = tramo.reserva;
@@ -272,7 +240,7 @@ export async function render(container) {
 
     // Filas por unidad: se recorren los días y se emite una celda ancha por estadía
     const filas = unidadesFiltradas.map((u) => {
-      const tramos = tramosDe(porUnidad[u.id] || [], dias, primerDia, ultimoDia);
+      const tramos = tramosDeMes(porUnidad[u.id] || [], dias, primerDia, ultimoDia);
       const porInicio = new Map();
       tramos.forEach((t) => { if (!porInicio.has(t.inicio)) porInicio.set(t.inicio, t); });
 
