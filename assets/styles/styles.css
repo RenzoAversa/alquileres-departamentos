@@ -867,3 +867,10 @@ input:not([type="checkbox"]):not([type="radio"]):focus, select:focus, textarea:f
 @media (max-width: 480px) {
   .selector-fechas__dia { font-size: .75rem; }
 }
+
+/* ============================================================
+   Buscar disponibilidad: mismo selector de fechas de Reservas,
+   con el campo de huéspedes angosto al lado (no ocupa el ancho
+   entero como un form__fila suelto haría).
+   ============================================================ */
+.disponibilidad-campo-huespedes { max-width: 160px; }

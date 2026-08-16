@@ -19,7 +19,7 @@ const MESES = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', '
 // molestar el uso real de "me olvidé de cargar esta reserva".
 const DIAS_LIMITE_RETRO = 365;
 
-export function crearSelectorFechas({ onCambio, excluirId = null } = {}) {
+export function crearSelectorFechas({ onCambio, excluirId = null, mostrarSinUnidad = false } = {}) {
   let unidadId = null;
   const cache = new Map(); // unidadId -> reservas[]
   const hoy = hoyISO();
@@ -180,7 +180,11 @@ export function crearSelectorFechas({ onCambio, excluirId = null } = {}) {
   }
 
   function pintarCalendario() {
-    if (!unidadId) { calendario.hidden = true; mensaje.hidden = false; return; }
+    // Sin unidad elegida: normalmente se esconde el calendario hasta que
+    // setUnidad() traiga su ocupación. En pantallas como "Buscar
+    // disponibilidad" (mostrarSinUnidad) todavía no hay una unidad para
+    // consultar, así que se pinta igual, sin ninguna reserva marcada.
+    if (!unidadId && !mostrarSinUnidad) { calendario.hidden = true; mensaje.hidden = false; return; }
     mensaje.hidden = true; calendario.hidden = false;
     avisoRetro.hidden = !modoRetro;
     reservasActual = cache.get(unidadId) || [];
@@ -256,6 +260,7 @@ export function crearSelectorFechas({ onCambio, excluirId = null } = {}) {
   }
 
   pintarResumen();
+  if (mostrarSinUnidad) pintarCalendario();
 
   return {
     element,

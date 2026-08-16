@@ -12,6 +12,7 @@ import { el, toast, spinner, vacio, money, noches } from '../../core/ui.js';
 import { navegar } from '../../core/router.js';
 import { store } from '../../core/store.js';
 import { hoyISO, masDias } from '../../core/metricas.js';
+import { crearSelectorFechas } from '../reservas/selector-fechas.js';
 
 const campo = (label, input) => el('label', { class: 'form__campo' }, [el('span', {}, label), input]);
 
@@ -29,12 +30,19 @@ function estaLibre(reservasUnidad, entrada, salida) {
 export async function render(container) {
   container.append(el('h1', { class: 'page-title' }, 'Buscar disponibilidad'));
 
-  const inEntrada = el('input', { name: 'entrada', type: 'date', required: true, value: hoyISO() });
-  const inSalida = el('input', { name: 'salida', type: 'date', required: true, value: masDias(hoyISO(), 2) });
+  // Mismo calendario que Reservas, solo que acá todavía no hay una unidad
+  // elegida: arranca sin ocupación marcada (mostrarSinUnidad) y deja elegir
+  // entrada/salida libremente.
+  const selectorFechas = crearSelectorFechas({ mostrarSinUnidad: true });
+  selectorFechas.setRangoInicial(hoyISO(), masDias(hoyISO(), 2));
+
   const inHuespedes = el('input', { name: 'huespedes', type: 'number', min: '1', value: '1' });
+  const campoHuespedes = campo('Huéspedes', inHuespedes);
+  campoHuespedes.classList.add('disponibilidad-campo-huespedes');
 
   const form = el('form', { class: 'card form' }, [
-    el('div', { class: 'form__fila' }, [campo('Entrada', inEntrada), campo('Salida', inSalida), campo('Huéspedes', inHuespedes)]),
+    campo('Fechas', selectorFechas.element),
+    campoHuespedes,
     el('button', { class: 'btn btn--primary', type: 'submit' }, 'Buscar disponibles')
   ]);
   container.append(form);
@@ -44,12 +52,11 @@ export async function render(container) {
 
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
-    const entrada = inEntrada.value;
-    const salida = inSalida.value;
+    const { entrada, salida } = selectorFechas.getRango();
     const huespedes = parseInt(inHuespedes.value) || 1;
 
-    if (new Date(salida) <= new Date(entrada)) {
-      toast('La salida debe ser posterior a la entrada', 'alerta');
+    if (!entrada || !salida) {
+      toast('Elegí la fecha de entrada y de salida', 'alerta');
       return;
     }
 
