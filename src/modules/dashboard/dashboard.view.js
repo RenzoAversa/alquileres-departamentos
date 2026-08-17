@@ -14,6 +14,7 @@ import { exportarReporte, exportarGraficosTorta } from '../../core/excel.js';
 import { generarGraficosTortaPDF } from '../../core/pdf.js';
 import { graficoTorta } from '../../core/graficos.js';
 import { sesion } from '../../core/sesion.js';
+import { notificacionesService } from '../../core/notificaciones.service.js';
 
 const kpi = (valor, etiqueta, extra = null, tono = '') =>
   el('div', { class: `kpi ${tono}` }, [el('div', { class: 'kpi__valor' }, valor), el('div', { class: 'kpi__label' }, etiqueta), extra].filter(Boolean));
@@ -43,10 +44,15 @@ export async function render(container) {
 
   const hoy = hoyISO();
 
-  // Carga: unidades + reservas recientes siempre; cuentas solo si ve dinero
+  // Carga: unidades + reservas recientes siempre; cuentas solo si ve dinero.
+  // Las reservas recientes se reusan del listener de notificaciones (mismo
+  // rango fechaSalida >= hoy-7, y ya viene garantizado fresco o con su
+  // propio respaldo si el listener no llegó a tiempo — ver
+  // notificacionesService.getReservasRecientes()), en vez de pedirlas de
+  // nuevo acá.
   const promesas = [
     unidadesService.getAll(),
-    reservasService.buscar([['fechaSalida', '>=', masDias(hoy, -7)]])
+    notificacionesService.getReservasRecientes()
   ];
   if (verDinero) promesas.push(cuentasService.getAll());
   const res = await Promise.all(promesas);

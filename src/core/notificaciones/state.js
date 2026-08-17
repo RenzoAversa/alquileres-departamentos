@@ -32,6 +32,11 @@ export const notificacionesState = {
   ultimaActualizacion: null,  // timestamp de cuándo se procesó
   ultimoDíaProcesado: null,   // fecha del último procesamiento
   listenerActivo: false,      // ¿está activo el listener de Firestore?
+  // ¿reservasCacheadas ya tiene el primer snapshot REAL (no un timeout de
+  // arranque)? Otras pantallas (el Panel) lo chequean antes de confiar en
+  // reservasCacheadas: si esto es false, ese array puede estar vacío
+  // solo porque todavía no llegó nada, no porque no haya reservas.
+  primerSnapshotListo: false,
   
   // ===== CONTADORES (para badge) =====
   contadores: {
@@ -68,6 +73,7 @@ export function resetearState() {
   notificacionesState.ultimaActualizacion = null;
   notificacionesState.ultimoDíaProcesado = null;
   notificacionesState.listenerActivo = false;
+  notificacionesState.primerSnapshotListo = false;
   notificacionesState.contadores = {
     hoy: { total: 0, checkIn: 0, checkOut: 0, pagoPendiente: 0 },
     proximos7d: { total: 0, checkIn: 0, checkOut: 0 },

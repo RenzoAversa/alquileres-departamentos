@@ -6,18 +6,22 @@
 // Tamaño: ~250 líneas
 //
 // PUBLIC API:
-//   init()              - Inicializar (llamar UNA vez al autenticarse)
-//   getEstado()         - Obtener estado actual
-//   getContadores()     - Solo contadores (para badge)
-//   cleanup()           - Limpiar (al logout)
+//   init()                 - Inicializar (llamar UNA vez al autenticarse)
+//   getEstado()             - Obtener estado actual
+//   getContadores()         - Solo contadores (para badge)
+//   getReservasRecientes()  - Reservas de fechaSalida >= hoy-7, para que
+//                             otras pantallas (el Panel) las reusen en vez
+//                             de pedirlas de nuevo (ver más abajo)
+//   cleanup()               - Limpiar (al logout)
 // ============================================================
 
 import { notificacionesState, resetearState } from './notificaciones/state.js';
 import { procesarReservas } from './notificaciones/engine.js';
 import { activarListener, desactivarListener } from './notificaciones/listener.js';
 import { estaVisto, alternarVisto, marcarTodosVistos, limpiarVistosViejos, resetearVistos } from './notificaciones/vistos.js';
-import { hoyISO } from './metricas.js';
+import { hoyISO, masDias } from './metricas.js';
 import { toast } from './ui.js';
+import { reservasService } from '../services/reservas.service.js';
 
 export const notificacionesService = {
   // ===== PRIVADAS =====
@@ -68,6 +72,28 @@ export const notificacionesService = {
   },
 
   /**
+   * Reservas con fechaSalida >= hoy-7 (activas y futuras), ya frescas —
+   * es el mismo rango que mantiene vivo el listener de notificaciones, así
+   * que otras pantallas (el Panel) las reusan en vez de pedirlas de nuevo.
+   *
+   * Espera a que el listener esté inicializado (init() es idempotente: si
+   * ya corrió, no hace nada de nuevo) y, si para entonces todavía no llegó
+   * el primer snapshot real (timeout, sin conexión, error), NO devuelve el
+   * array vacío por las dudas — hace ella misma una consulta directa como
+   * respaldo. Nunca deja a quien la llama esperando para siempre ni le da
+   * un dato que podría estar vacío solo por timing.
+   *
+   * @returns {Promise<Array>}
+   */
+  async getReservasRecientes() {
+    try { await this.init(); } catch { /* init() ya logueó y limpió */ }
+    if (notificacionesState.primerSnapshotListo) {
+      return notificacionesState.reservasCacheadas;
+    }
+    return reservasService.buscar([['fechaSalida', '>=', masDias(hoyISO(), -7)]]);
+  },
+
+  /**
    * ¿Este aviso ya fue visto? (preferencia local, por usuario)
    */
   estaVisto(avisoId) {
@@ -105,12 +131,22 @@ export const notificacionesService = {
    * @returns {Promise<void>}
    */
   async cleanup() {
+    // 0. Invalida cualquier _inicializarInterno() en curso: si estaba a
+    //    mitad de camino esperando el primer snapshot (o su timeout de
+    //    6s) cuando se llamó a este cleanup(), esa espera puede resolver
+    //    recién segundos después de este punto. Sin este token, esa
+    //    continuación tardía repoblaría notificacionesState (y
+    //    localStorage) con datos de la sesión que ya cerró — si para
+    //    entonces ya entró OTRO usuario, vería por un instante avisos que
+    //    no son suyos.
+    this._token = (this._token || 0) + 1;
+
     // 1. Detener interval
     if (this._intervalId) {
       clearInterval(this._intervalId);
       this._intervalId = null;
     }
-    
+
     // 2. Desactivar listener
     if (this._unsubscribe) {
       desactivarListener(this._unsubscribe);
@@ -145,6 +181,10 @@ export const notificacionesService = {
   // ===== PRIVADAS (implementación interna) =====
   
   async _inicializarInterno() {
+    // Token propio de esta inicialización: si cleanup() corre mientras
+    // estamos esperando `listo` más abajo, bumpea this._token y esta
+    // continuación se da cuenta y no sigue (ver cleanup() para el detalle).
+    const miToken = (this._token = (this._token || 0) + 1);
     try {
       // 1. Cargar del cache (localStorage)
       this._cargarDelCache();
@@ -153,25 +193,40 @@ export const notificacionesService = {
       //     para que el localStorage no crezca sin control.
       limpiarVistosViejos();
 
-      // 2. Activar listener Firestore
-      //    (carga inicial: 1 lectura por documento del rango; cada cambio
-      //    posterior en un documento de ese rango también factura 1
-      //    lectura — no es gratis, ver core/notificaciones/listener.js)
-      this._unsubscribe = await activarListener();
-      
+      // 2. Activar listener Firestore. `unsubscribe` queda guardado DE UNA
+      //    (sincrónico), antes de esperar nada: si justo ahora se llama a
+      //    cleanup() (ej. un logout rápido), tiene que poder cortar la
+      //    suscripción real aunque el primer snapshot todavía no haya
+      //    llegado — si no, el listener quedaría corriendo en segundo
+      //    plano para siempre (fuga). `listo` sí espera al primer snapshot
+      //    real (o hasta 6s si Firestore no contesta, ver listener.js)
+      //    antes de seguir, para que reservasCacheadas ya esté poblado.
+      //    Costo: carga inicial = 1 lectura por documento del rango; cada
+      //    cambio posterior en un documento de ese rango también factura
+      //    1 lectura (no es gratis, ver core/notificaciones/listener.js).
+      const { unsubscribe, listo } = activarListener();
+      this._unsubscribe = unsubscribe;
+      await listo;
+
+      // Si mientras esperábamos `listo` alguien llamó a cleanup() (logout
+      // rápido), este token ya no es el vigente: no seguir, no pisar el
+      // estado de la sesión (o el usuario) que vino después.
+      if (this._token !== miToken) return;
+
       // 3. Procesar datos iniciales
       this._procesarDatos();
-      
+
       // 4. Interval cada 60s para recalcular
       //    (Sin queries, solo lógica local)
       this._intervalId = setInterval(() => {
         this._procesarDatos();
         this._verificarCambioDedía();
       }, 60000);
-      
+
       // 5. Callback para cuando el listener notifica cambios
       notificacionesState._dispatchUpdate = () => this._procesarDatos();
     } catch (err) {
+      if (this._token !== miToken) return; // idem: ya no es relevante
       console.error('✗ [notificaciones] Error inicializar:', err);
       toast('Error cargando notificaciones', 'alerta');
       await this.cleanup();
