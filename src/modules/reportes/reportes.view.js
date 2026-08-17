@@ -238,6 +238,10 @@ export async function render(container) {
           { nombre: 'Gastos', valor: d.egresos, color: 'var(--alerta)' }
         ]
       })), { formatoValor: (n) => money(n), titulo: 'Ingresos vs gastos por mes' }));
+      contApiladas.append(valoresMensuales(datos, [
+        { clave: 'ingresos', etiqueta: 'Ingresos', variacion: true },
+        { clave: 'egresos', etiqueta: 'Gastos', variacion: true }
+      ]));
     }
     cargar();
   }
