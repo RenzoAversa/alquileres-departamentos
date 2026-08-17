@@ -53,7 +53,14 @@ function agruparUnidades(unidades, edificios) {
 }
 
 export async function render(container) {
-  const edificios = await edificiosService.getAll();
+  // `edificios` la reasigna cargarLista() en cada carga (incluida la
+  // inicial): antes se pedía acá Y de nuevo dentro de cargarLista() para
+  // la misma pantalla, dos lecturas idénticas en simultáneo. El botón
+  // "Nuevo departamento" y los de "Editar" cierran sobre esta variable y
+  // la leen recién al hacer click, así que siempre ven la última que
+  // trajo cargarLista() (Recargar y el guardado de alta/edición la
+  // siguen refrescando exactamente igual que antes).
+  let edificios = [];
 
   container.append(el('div', { class: 'page-head' }, [
     el('h1', { class: 'page-title' }, 'Departamentos'),
@@ -167,9 +174,10 @@ export async function render(container) {
 
   async function cargarLista() {
     const [unidades, edificiosFrescos] = await Promise.all([unidadesService.getAll(), edificiosService.getAll()]);
-    paginado.setItems(agruparUnidades(unidades, edificiosFrescos));
+    edificios = edificiosFrescos;
+    paginado.setItems(agruparUnidades(unidades, edificios));
   }
-  cargarLista();
+  await cargarLista();
 }
 
 function abrirAltaUnidad(edificios, onGuardar) {
