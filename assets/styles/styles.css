@@ -410,6 +410,27 @@ input:not([type="checkbox"]):not([type="radio"]):focus, select:focus, textarea:f
   .barras--valores { overflow-x: auto; overscroll-behavior-x: contain; }
   .barras--valores .barra { flex: 0 0 72px; }
 }
+
+/* Fila de valores por mes de Evolución mensual (y, en la Fase 6, también
+   Ingresos vs gastos): una tarjeta chica por mes, en vez de meter el
+   texto adentro del SVG de graficoLineas/graficoBarrasApiladas. */
+.valores-mensuales { display: flex; gap: var(--sp-3); overflow-x: auto; margin-top: var(--sp-3); padding-bottom: 2px; }
+.valores-mensuales__mes {
+  flex: 0 0 auto; min-width: 112px; display: flex; flex-direction: column; gap: 6px;
+  padding: var(--sp-2) var(--sp-3); border: 1px solid var(--borde); border-radius: var(--radio-sm);
+  background: var(--fondo);
+}
+.valores-mensuales__mes-label { font-weight: 600; font-size: .82rem; }
+.valores-mensuales__item { display: flex; flex-direction: column; gap: 2px; }
+.valores-mensuales__fila { display: flex; align-items: baseline; gap: 6px; flex-wrap: wrap; }
+.valores-mensuales__valor { font-weight: 600; font-size: .85rem; font-variant-numeric: tabular-nums; }
+@media (max-width: 480px) {
+  /* Acá sí conviene lista vertical y no scroll: son varias métricas por
+     mes (hasta 3), y en una fila angosta de scroll horizontal quedarían
+     demasiado apretadas para leerse bien. */
+  .valores-mensuales { flex-direction: column; overflow-x: visible; }
+  .valores-mensuales__mes { min-width: 0; }
+}
 .reportes-subtitulo { font-size: .9rem; color: var(--texto-muted); margin: 0 0 var(--sp-2); }
 
 /* ============================================================

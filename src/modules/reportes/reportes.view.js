@@ -17,7 +17,7 @@ import { graficoLineas, graficoBarrasApiladas } from '../../core/graficos.js';
 import { exportarTendencias } from '../../core/excel.js';
 import { generarTendenciasPDF } from '../../core/pdf.js';
 import { sesion } from '../../core/sesion.js';
-import { nodoVariacion } from './valores-mensuales.js';
+import { nodoVariacion, valoresMensuales } from './valores-mensuales.js';
 
 export async function render(container) {
   container.append(el('h1', { class: 'page-title' }, 'Reportes'));
@@ -223,6 +223,11 @@ export async function render(container) {
         { nombre: 'Gastos', valores: datos.map((d) => d.egresos), color: 'var(--alerta)' },
         { nombre: 'Neto', valores: datos.map((d) => d.neto), color: 'var(--color-primario)' }
       ], { etiquetas, formatoValor: (n) => money(n), titulo: 'Evolución mensual: ingresos, gastos y neto' }));
+      contEvolucion.append(valoresMensuales(datos, [
+        { clave: 'ingresos', etiqueta: 'Ingresos' },
+        { clave: 'egresos', etiqueta: 'Gastos' },
+        { clave: 'neto', etiqueta: 'Neto', variacion: true }
+      ]));
 
       // ---- Ingresos vs gastos por mes (barras apiladas) ----
       contApiladas.innerHTML = '';
