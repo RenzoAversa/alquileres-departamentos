@@ -145,19 +145,27 @@ export async function render(container) {
     contOcuUnidad.append(el('div', { class: 'card' }, [headerOcu, filasOcupacion]));
   }
 
+  // ---- Movimientos de la carga inicial ----
+  // Se piden UNA vez, con el rango más amplio que necesita la Comparativa
+  // de abajo (7 días + su período anterior equivalente). "Ingresos por
+  // cuenta" -que solo necesita los últimos 7 días- se deriva filtrando
+  // este mismo array en memoria, en vez de pedirlo aparte (antes eran dos
+  // consultas con rangos que se pisaban). Si después cambiás el período de
+  // la Comparativa, esa sí vuelve a consultar Firestore (rango distinto).
+  const periodoInicial = { desde: masDias(hoy, -6), hasta: hoy };
+  const prevInicial = periodoAnterior(periodoInicial.desde, periodoInicial.hasta);
+  let movimientosCacheInicial = verDinero
+    ? await movimientosService.buscar([['fecha', '>=', prevInicial.desde], ['fecha', '<=', periodoInicial.hasta]], ['fecha', 'asc'])
+    : null;
+
   // ---- Ingresos por cuenta (solo con permiso) ----
   // Se calcula sobre los movimientos de ingreso reales (no sobre el total
   // de las reservas), así refleja en qué cuenta entró la plata de verdad.
-  // El filtro por fecha es de un solo campo (sin combinar con otra
-  // igualdad) para no requerir un índice compuesto en Firestore.
   contCanal.innerHTML = '';
   let datosCuentaExport = [];
   if (verDinero) {
     const desdeIngresos = masDias(hoy, -6);
-    const movsPeriodo = await movimientosService.buscar([
-      ['fecha', '>=', desdeIngresos],
-      ['fecha', '<=', hoy]
-    ]);
+    const movsPeriodo = movimientosCacheInicial.filter((m) => m.fecha >= desdeIngresos);
     const porCuenta = {};
     movsPeriodo.filter((m) => m.tipo === 'ingreso').forEach((m) => {
       const id = m.cuentaId || 'sin_cuenta';
@@ -224,12 +232,22 @@ export async function render(container) {
     if (grid) { grid.innerHTML = ''; grid.append(spinner('Calculando…')); }
     const prev = periodoAnterior(periodo.desde, periodo.hasta);
 
-    // Reservas siempre (ocupación); movimientos solo si ve dinero
-    const cargas = [reservasService.buscar([['fechaSalida', '>=', prev.desde]])];
-    if (verDinero) cargas.unshift(movimientosService.buscar([['fecha', '>=', prev.desde], ['fecha', '<=', periodo.hasta]], ['fecha', 'asc']));
-    const r = await Promise.all(cargas);
-    const movs = verDinero ? r[0] : [];
-    const reservas = verDinero ? r[1] : r[0];
+    // La primera vez (período default) reusa los movimientos ya traídos
+    // arriba en vez de volver a pedir el mismo rango; los cambios de
+    // período posteriores sí necesitan una consulta nueva (rango distinto).
+    let movs, reservas;
+    if (movimientosCacheInicial) {
+      movs = movimientosCacheInicial;
+      movimientosCacheInicial = null;
+      reservas = await reservasService.buscar([['fechaSalida', '>=', prev.desde]]);
+    } else {
+      // Reservas siempre (ocupación); movimientos solo si ve dinero
+      const cargas = [reservasService.buscar([['fechaSalida', '>=', prev.desde]])];
+      if (verDinero) cargas.unshift(movimientosService.buscar([['fecha', '>=', prev.desde], ['fecha', '<=', periodo.hasta]], ['fecha', 'asc']));
+      const r = await Promise.all(cargas);
+      movs = verDinero ? r[0] : [];
+      reservas = verDinero ? r[1] : r[0];
+    }
 
     const act = metricasPeriodo(movs, reservas, activas.length, periodo.desde, periodo.hasta);
     const ant = metricasPeriodo(movs, reservas, activas.length, prev.desde, prev.hasta);
