@@ -14,10 +14,16 @@ import { abrirDetalleReserva } from './detalle.js';
 import { abrirEdicionReserva } from './editar.js';
 import { crearSelectorFechas } from './selector-fechas.js';
 import { sesion } from '../../core/sesion.js';
-import { hoyISO } from '../../core/metricas.js';
+import { hoyISO, masDias } from '../../core/metricas.js';
 
 const HORA_ENTRADA_DEFAULT = '15:00';
 const HORA_SALIDA_DEFAULT = '10:00';
+
+// Reservas finalizadas: por default se listan solo las de los últimos 6
+// meses (cubre el uso normal sin leer todo el histórico, que crece sin
+// límite). "Ver más antiguas" trae el resto bajo pedido.
+const VENTANA_FINALIZADAS_DIAS = 180;
+const VENTANA_FINALIZADAS_LABEL = '6 meses';
 
 const FILTROS_PAGO = [
   { k: 'todas', label: 'Todas' },
@@ -160,6 +166,25 @@ export async function render(container) {
   seccionFin.append(headerFin, listaContFin);
   container.append(seccionFin);
 
+  // Aviso de que la lista está acotada + botón para traer todo el
+  // histórico. Va antes que el paginado dentro de listaContFin; crearPaginado
+  // solo gestiona sus propios nodos internos, así que no lo pisa.
+  let finalizadasAmpliado = false;
+  const bannerFin = el('div', {});
+  listaContFin.append(bannerFin);
+  function pintarBannerFinalizadas() {
+    bannerFin.innerHTML = '';
+    bannerFin.append(finalizadasAmpliado
+      ? el('p', { class: 'muted small' }, 'Mostrando todo el historial de reservas finalizadas.')
+      : el('p', { class: 'muted small' }, [
+          `Mostrando finalizadas de los últimos ${VENTANA_FINALIZADAS_LABEL}. `,
+          el('button', {
+            class: 'btn btn--ghost btn--sm', type: 'button', style: 'margin-left:8px',
+            onClick: async () => { finalizadasAmpliado = true; await cargarLista(); }
+          }, 'Ver más antiguas')
+        ]));
+  }
+
   const paginadoFin = crearPaginado({
     contenedor: listaContFin,
     porPagina: 20,
@@ -243,7 +268,14 @@ export async function render(container) {
   }
 
   async function cargarLista() {
-    let reservas = await reservasService.getAll();
+    // Por default, acota a los últimos VENTANA_FINALIZADAS_DIAS días: cubre
+    // el 100% de las activas (siempre tienen fechaSalida >= hoy) más un
+    // margen de finalizadas recientes, sin leer todo el histórico en cada
+    // apertura. "Ver más antiguas" pide todo, sin límite, una sola vez.
+    const desdeVentana = masDias(hoyISO(), -VENTANA_FINALIZADAS_DIAS);
+    let reservas = await reservasService.buscar(
+      finalizadasAmpliado ? [] : [['fechaSalida', '>=', desdeVentana]]
+    );
     if (verDinero && filtroPago !== 'todas') {
       reservas = reservas.filter((r) => estadoPagoDe(r.pagado, r.precioTotal) === filtroPago);
     }
@@ -252,6 +284,7 @@ export async function render(container) {
     const finalizadas = reservas.filter((r) => estaFinalizada(r));
     paginado.setItems(agruparPorPropiedad(activas, unidades, edificios));
     paginadoFin.setItems(agruparPorPropiedad(finalizadas, unidades, edificios));
+    pintarBannerFinalizadas();
   }
   cargarLista();
 }
