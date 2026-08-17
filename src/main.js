@@ -10,6 +10,7 @@ import { watchAuth, logout } from './core/auth.js';
 import { definirRutas, iniciarRouter } from './core/router.js';
 import { cargarSesion, sesion } from './core/sesion.js';
 import { aplicarTemaGuardado, alternarTema } from './core/tema.js';
+import { store } from './core/store.js';
 import { montarBusquedaGlobal } from './modules/reservas/busqueda-global.js';
 // Notificaciones
 import { notificacionesService } from './core/notificaciones.service.js';
@@ -125,6 +126,10 @@ let iniciado = false;
 watchAuth(async (user) => {
   if (!user) {
     await notificacionesService.cleanupLogout();
+    // Limpia el caché de edificios/unidades (services/cache-colecciones.js)
+    // y cualquier otro dato en memoria: si entra otro usuario, no debería
+    // heredar nada de la sesión anterior.
+    store.clear();
     location.replace('login.html');
     return;
   }
