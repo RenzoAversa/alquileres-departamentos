@@ -70,24 +70,31 @@ export async function render(container) {
   const puedeEliminar = sesion.puede('eliminar');
   const puedeEditar = sesion.puede('editarReservas');
 
-  const cargas = [unidadesService.getAll(), edificiosService.getAll()];
-  if (gestionarPagos) cargas.push(cuentasService.getAll());
-  const r0 = await Promise.all(cargas);
-  const unidades = r0[0];
-  const edificios = r0[1];
-  const cuentas = gestionarPagos ? (r0[2] || []) : [];
+  const [unidades, edificios] = await Promise.all([unidadesService.getAll(), edificiosService.getAll()]);
+
+  // Cuentas: solo hacen falta para el pago retroactivo del alta y para
+  // "Ver / Pagar" — se piden recién la primera vez que alguna de las dos
+  // se usa, no en cada apertura de esta pantalla (ahorra lecturas).
+  let cuentasCache = null;
+  async function cuentasLazy() {
+    if (!gestionarPagos) return [];
+    if (!cuentasCache) cuentasCache = await cuentasService.getAll();
+    return cuentasCache;
+  }
 
   container.append(el('div', { class: 'page-head' }, [
     el('h1', { class: 'page-title' }, 'Reservas'),
-    boton('Nueva reserva', { variante: 'accion', icono: '+', onClick: () => abrirAltaReserva(unidades, cargarLista, null, { gestionarPagos, cuentas }) })
+    boton('Nueva reserva', { variante: 'accion', icono: '+', onClick: async () => abrirAltaReserva(unidades, cargarLista, null, { gestionarPagos, cuentas: await cuentasLazy() }) })
   ]));
 
   // Si venimos del buscador de disponibilidad o del mapa, abrimos el
-  // formulario ya precargado en vez de esperar el click del botón.
+  // formulario ya precargado en vez de esperar el click del botón. Acá sí
+  // hacen falta las cuentas de una (el modal se abre solo, no hay click
+  // que dispare cuentasLazy() antes).
   const preset = store.get('reservaPreset');
   if (preset) {
     store.set('reservaPreset', null);
-    abrirAltaReserva(unidades, cargarLista, preset, { gestionarPagos, cuentas });
+    abrirAltaReserva(unidades, cargarLista, preset, { gestionarPagos, cuentas: await cuentasLazy() });
     toast('Datos precargados desde el buscador', 'ok');
   }
 
@@ -177,7 +184,7 @@ export async function render(container) {
 
     const acciones = el('div', { style: 'display:flex;gap:8px;flex-wrap:wrap' }, []);
     if (puedeEditar) acciones.append(el('button', { class: 'btn btn--ghost btn--sm', type: 'button', onClick: () => abrirEdicionReserva(r, unidades, cargarLista) }, 'Editar'));
-    if (gestionarPagos) acciones.append(el('button', { class: 'btn btn--primary btn--sm', type: 'button', onClick: () => abrirDetalleReserva(r, cuentas, cargarLista) }, 'Ver / Pagar'));
+    if (gestionarPagos) acciones.append(el('button', { class: 'btn btn--primary btn--sm', type: 'button', onClick: async () => abrirDetalleReserva(r, await cuentasLazy(), cargarLista) }, 'Ver / Pagar'));
     if (puedeEliminar) acciones.append(el('button', {
       class: 'btn btn--ghost btn--sm', type: 'button',
       onClick: async () => {
