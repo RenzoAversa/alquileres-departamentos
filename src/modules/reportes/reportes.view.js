@@ -17,6 +17,7 @@ import { graficoLineas, graficoBarrasApiladas } from '../../core/graficos.js';
 import { exportarTendencias } from '../../core/excel.js';
 import { generarTendenciasPDF } from '../../core/pdf.js';
 import { sesion } from '../../core/sesion.js';
+import { nodoVariacion } from './valores-mensuales.js';
 
 export async function render(container) {
   container.append(el('h1', { class: 'page-title' }, 'Reportes'));
@@ -148,8 +149,11 @@ export async function render(container) {
     }
     pintarChips();
 
-    const graficoIngresos = el('div', { class: 'barras' }, spinner('Calculando…'));
-    const graficoOcupacion = el('div', { class: 'barras' });
+    // barras--valores: modificador propio de Reportes (más alto, con scroll
+    // horizontal en mobile), para no afectar el widget de "Ocupación · los
+    // últimos 7 días" del Dashboard, que reusa las mismas clases base.
+    const graficoIngresos = el('div', { class: 'barras barras--valores' }, spinner('Calculando…'));
+    const graficoOcupacion = el('div', { class: 'barras barras--valores' });
     const contEvolucion = el('div', {});
     const contApiladas = el('div', {});
 
@@ -187,19 +191,27 @@ export async function render(container) {
 
       const maxIngreso = Math.max(1, ...datos.map((d) => d.ingresos));
       graficoIngresos.innerHTML = '';
-      datos.forEach((d) => {
+      datos.forEach((d, i) => {
         const pct = Math.round((d.ingresos / maxIngreso) * 100);
-        graficoIngresos.append(el('div', { class: 'barra', title: `${d.label}: ${money(d.ingresos)}` }, [
+        const anterior = i > 0 ? datos[i - 1].ingresos : null;
+        graficoIngresos.append(el('div', { class: 'barra' }, [
+          el('div', { class: 'barra__valor' }, money(d.ingresos)),
           el('div', { class: 'barra__col' }, el('div', { class: 'barra__fill barra__fill--ok', style: `height:${pct}%` })),
-          el('div', { class: 'barra__label' }, d.label)
+          el('div', { class: 'barra__label' }, d.label),
+          anterior != null ? nodoVariacion(d.ingresos, anterior) : null
         ]));
       });
 
-      datos.forEach((d) => {
+      datos.forEach((d, i) => {
         const pct = Math.round(d.ocupacion);
-        graficoOcupacion.append(el('div', { class: 'barra', title: `${d.label}: ${pct}% ocupación` }, [
+        const anterior = i > 0 ? datos[i - 1].ocupacion : null;
+        graficoOcupacion.append(el('div', { class: 'barra' }, [
+          el('div', { class: 'barra__valor' }, `${pct}%`),
           el('div', { class: 'barra__col' }, el('div', { class: 'barra__fill', style: `height:${Math.min(100, pct)}%` })),
-          el('div', { class: 'barra__label' }, d.label)
+          el('div', { class: 'barra__label' }, d.label),
+          // Sin porcentaje sobre porcentaje: acá la variación es en puntos,
+          // no "variación % de la ocupación %" (confunde más de lo que aclara).
+          anterior != null ? nodoVariacion(d.ocupacion, anterior, (n) => `${Math.round(n)}%`, { mostrarPct: false }) : null
         ]));
       });
 

@@ -393,6 +393,23 @@ input:not([type="checkbox"]):not([type="radio"]):focus, select:focus, textarea:f
 .barra__fill--ok { background: var(--ok); }
 .barra__fill--alerta { background: var(--alerta); }
 .barra__label { font-size: .72rem; color: var(--texto-muted); }
+
+/* ============================================================
+   Reportes: valor + variación siempre visibles (antes solo en el
+   `title` de la barra, invisible en mobile y adivinado en desktop).
+   Modificador propio para no afectar el widget de barras del Dashboard,
+   que reusa las mismas clases base .barras/.barra.
+   ============================================================ */
+.barras--valores { height: 190px; }
+.barra__valor { font-size: .74rem; font-weight: 600; color: var(--texto); font-variant-numeric: tabular-nums; text-align: center; }
+.variacion-mensual { font-size: .7rem; font-variant-numeric: tabular-nums; text-align: center; white-space: nowrap; }
+@media (max-width: 480px) {
+  /* Con 12 meses no entran los números en 360px: se deja de repartir el
+     ancho en partes iguales y se scrollea horizontal, mismo criterio que
+     ya usa el calendario (.cal-scroll) para el mismo problema. */
+  .barras--valores { overflow-x: auto; overscroll-behavior-x: contain; }
+  .barras--valores .barra { flex: 0 0 72px; }
+}
 .reportes-subtitulo { font-size: .9rem; color: var(--texto-muted); margin: 0 0 var(--sp-2); }
 
 /* ============================================================
