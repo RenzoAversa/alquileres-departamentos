@@ -57,8 +57,8 @@ function etiquetaEncaje({ tipo, pegaAntes }) {
   if (tipo === 'perfecto') return { texto: 'Encaje perfecto', clase: 'badge--ok' };
   if (tipo === 'un-lado') {
     return pegaAntes
-      ? { texto: 'Pega con la reserva anterior', clase: 'badge--warn' }
-      : { texto: 'Pega con la reserva siguiente', clase: 'badge--warn' };
+      ? { texto: 'Egresa gente cuando llega la reserva actual', clase: 'badge--warn' }
+      : { texto: 'Ingresa gente cuando se va la reserva actual', clase: 'badge--warn' };
   }
   return { texto: 'Sin encaje', clase: 'badge--muted' };
 }
