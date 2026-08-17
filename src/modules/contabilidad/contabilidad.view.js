@@ -28,6 +28,11 @@ export async function render(container) {
 
   let cuentas = [];
   let unidades = [];
+  // pintarResumen() ya trae los movimientos del mes (los necesita para las
+  // 3 KPI); acá quedan un momento para que pintarLista() los reuse en vez
+  // de volver a pedir el mismo mes. Se consume una sola vez: si pintarLista()
+  // se llama sola (su propio botón "Recargar"), vuelve a pedir fresco.
+  let movimientosCache = null;
 
   const contSaldos = el('div', {});
   const contResumen = el('div', {});
@@ -154,6 +159,7 @@ export async function render(container) {
       }
     });
     const r = await movimientosService.resumenMes(anio, mes);
+    movimientosCache = r.movimientos;
     const btnExp = el('button', { class: 'btn btn--ghost btn--sm', type: 'button' }, 'Exportar a Excel');
     btnExp.addEventListener('click', async () => {
       const mm = String(mes).padStart(2, '0');
@@ -297,7 +303,8 @@ export async function render(container) {
   }
 
   async function pintarLista() {
-    const movs = await movimientosService.getByMes(anio, mes);
+    const movs = movimientosCache || await movimientosService.getByMes(anio, mes);
+    movimientosCache = null;
     paginadoMovs.setItems(movs);
   }
 
