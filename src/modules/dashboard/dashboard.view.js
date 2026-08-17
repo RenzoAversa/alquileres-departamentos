@@ -89,7 +89,8 @@ export async function render(container) {
     const ocup = reservasRecientes.filter((r) => r.estado !== 'cancelada' && r.fechaEntrada <= d && r.fechaSalida > d).length;
     const pct = activas.length ? Math.round((ocup / activas.length) * 100) : 0;
     const [, mm, dd] = d.split('-');
-    barras.push(el('div', { class: 'barra', title: `${dd}/${mm}: ${pct}%` }, [
+    barras.push(el('div', { class: 'barra' }, [
+      el('div', { class: 'barra__valor' }, `${pct}%`),
       el('div', { class: 'barra__col' }, el('div', { class: 'barra__fill', style: `height:${pct}%` })),
       el('div', { class: 'barra__label' }, `${dd}/${mm}`)
     ]));
@@ -128,7 +129,13 @@ export async function render(container) {
     headerOcu.append(btnExportarGraficos, btnExportarGraficosPDF);
     contOcuUnidad.append(el('div', { class: 'card' }, [
       headerOcu,
-      graficoTorta(ocupacionPorUnidad, { formatoValor: (n) => `${n}%`, titulo: 'Ocupación por departamento' })
+      // Aclaración porque el % de cada departamento es independiente del
+      // resto (cuánto de LOS ÚLTIMOS 7 DÍAS estuvo ocupado, no una parte
+      // de un total): un 100% no significa que "domina la torta", solo
+      // que estuvo lleno toda la semana. El "ocupado" en la leyenda (ver
+      // formatoValor abajo) refuerza lo mismo sin depender de esta frase.
+      el('p', { class: 'muted small' }, 'Cada porcentaje es la ocupación de ese departamento en los últimos 7 días, independiente de los demás (no es una parte de un total).'),
+      graficoTorta(ocupacionPorUnidad, { formatoValor: (n) => `${n}% ocupado`, titulo: 'Ocupación por departamento' })
     ]));
   }
 
