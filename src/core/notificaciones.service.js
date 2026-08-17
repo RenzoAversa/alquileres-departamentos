@@ -34,7 +34,8 @@ export const notificacionesService = {
    * 
    * Pasos:
    * 1. Cargar del cache (localStorage)
-   * 2. Activar listener Firestore (1 sola query)
+   * 2. Activar listener Firestore (1 sola query, pero factura 1 lectura
+   *    por cada documento que trae — ver core/notificaciones/listener.js)
    * 3. Procesar datos iniciales
    * 4. Iniciar interval cada 60s (sin queries)
    * 
@@ -153,7 +154,9 @@ export const notificacionesService = {
       limpiarVistosViejos();
 
       // 2. Activar listener Firestore
-      //    (Primer call cuesta 1 lectura, cambios posteriores son gratis)
+      //    (carga inicial: 1 lectura por documento del rango; cada cambio
+      //    posterior en un documento de ese rango también factura 1
+      //    lectura — no es gratis, ver core/notificaciones/listener.js)
       this._unsubscribe = await activarListener();
       
       // 3. Procesar datos iniciales
