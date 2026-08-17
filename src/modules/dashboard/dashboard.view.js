@@ -108,7 +108,8 @@ export async function render(container) {
         const m = metricasOcupacion(propias, 1, desdeOcu, hoy);
         return { label: u.nombre, valor: Math.round(m.ocupacion) };
       })
-      .filter((d) => d.valor > 0);
+      .filter((d) => d.valor > 0)
+      .sort((a, b) => b.valor - a.valor);
     const headerOcu = el('div', { class: 'comp-header' }, [el('h3', {}, 'Ocupación por departamento · últimos 7 días')]);
     const hojasGraficos = () => [
       { nombre: 'Ocupación por departamento', items: ocupacionPorUnidad, formatoValor: (n) => `${n}%` },
@@ -127,16 +128,21 @@ export async function render(container) {
       btnExportarGraficosPDF.disabled = false; btnExportarGraficosPDF.textContent = 'Exportar a PDF';
     });
     headerOcu.append(btnExportarGraficos, btnExportarGraficosPDF);
-    contOcuUnidad.append(el('div', { class: 'card' }, [
-      headerOcu,
-      // Aclaración porque el % de cada departamento es independiente del
-      // resto (cuánto de LOS ÚLTIMOS 7 DÍAS estuvo ocupado, no una parte
-      // de un total): un 100% no significa que "domina la torta", solo
-      // que estuvo lleno toda la semana. El "ocupado" en la leyenda (ver
-      // formatoValor abajo) refuerza lo mismo sin depender de esta frase.
-      el('p', { class: 'muted small' }, 'Cada porcentaje es la ocupación de ese departamento en los últimos 7 días, independiente de los demás (no es una parte de un total).'),
-      graficoTorta(ocupacionPorUnidad, { formatoValor: (n) => `${n}% ocupado`, titulo: 'Ocupación por departamento' })
-    ]));
+
+    // Barras por departamento en vez de torta: cada % es la ocupación de
+    // ESE departamento en los últimos 7 días, independiente de los demás
+    // (no es una parte de un total). Con una torta un 100% se leía como
+    // "domina el gráfico"; con barras no hay esa ambigüedad. Reusa
+    // .occ-row/.occ-bar, ya definidas en el CSS para esto y sin usar.
+    const filasOcupacion = ocupacionPorUnidad.length
+      ? el('div', {}, ocupacionPorUnidad.map((d) => el('div', { class: 'occ-row' }, [
+          el('span', { class: 'occ-row__label' }, d.label),
+          el('div', { class: 'occ-bar' }, el('div', { class: 'occ-bar__fill', style: `width:${d.valor}%` })),
+          el('span', { class: 'occ-row__val' }, `${d.valor}%`)
+        ])))
+      : el('p', { class: 'muted small' }, 'No hay ocupación registrada en los últimos 7 días.');
+
+    contOcuUnidad.append(el('div', { class: 'card' }, [headerOcu, filasOcupacion]));
   }
 
   // ---- Ingresos por cuenta (solo con permiso) ----
