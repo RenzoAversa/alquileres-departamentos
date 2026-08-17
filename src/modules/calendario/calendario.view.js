@@ -48,6 +48,23 @@ export async function render(container) {
     return cuentas;
   }
 
+  // Reservas del mes mostrado: se cachean por (año, mes) para no volver a
+  // pedirlas cuando lo único que cambia es un filtro (edificio/unidad de
+  // arriba, o el de "Movimientos del mes") — esos son puramente client-side,
+  // no necesitan datos nuevos. `forzar: true` se usa después de tocar una
+  // reserva (pago/estado), porque ahí sí hubo una escritura que este
+  // array todavía no vio.
+  let reservasCache = null; // { anio, mes, datos }
+  async function reservasDelMes(primerDia, ultimoDia, forzar) {
+    if (!forzar && reservasCache && reservasCache.anio === anio && reservasCache.mes === mes) {
+      return reservasCache.datos;
+    }
+    const datos = (await reservasService.buscar([['fechaSalida', '>=', primerDia]]))
+      .filter((r) => r.fechaEntrada <= ultimoDia && r.estado !== 'cancelada');
+    reservasCache = { anio, mes, datos };
+    return datos;
+  }
+
   const cont = el('div', {});
   container.append(cont);
   cont.append(el('div', { class: 'card' }, spinner('Cargando calendario…')));
@@ -139,11 +156,11 @@ export async function render(container) {
       type: 'button',
       title: `${nombre} · ${detalle}`,
       'aria-label': `${nombre}, ${detalle}`,
-      onClick: async () => abrirDetalleReserva(r, await cuentasLazy(), pintar)
+      onClick: async () => abrirDetalleReserva(r, await cuentasLazy(), pintarForzado)
     }, contenido);
   }
 
-  async function pintar() {
+  async function pintar({ forzar = false } = {}) {
     cont.innerHTML = '';
     cont.append(el('div', { class: 'card' }, spinner('Cargando mes…')));
 
@@ -168,9 +185,8 @@ export async function render(container) {
         return compararPiso((a.piso || '').trim(), (b.piso || '').trim());
       });
 
-    // Reservas que solapan el mes (acotado + filtro cliente)
-    const reservas = (await reservasService.buscar([['fechaSalida', '>=', primerDia]]))
-      .filter((r) => r.fechaEntrada <= ultimoDia && r.estado !== 'cancelada');
+    // Reservas que solapan el mes (acotado + filtro cliente), cacheadas por mes
+    const reservas = await reservasDelMes(primerDia, ultimoDia, forzar);
 
     const porUnidad = {};
     reservas.forEach((r) => { (porUnidad[r.unidadId] = porUnidad[r.unidadId] || []).push(r); });
@@ -337,6 +353,11 @@ export async function render(container) {
     }
     cont.append(seccion);
   }
+
+  // La usa el detalle de reserva al cerrar con cambios (pago/estado): ahí
+  // sí hubo una escritura que el cache de reservasDelMes todavía no vio,
+  // así que fuerza a releer aunque el mes mostrado no haya cambiado.
+  const pintarForzado = () => pintar({ forzar: true });
 
   // Etiqueta relativa de ESTE movimiento puntual (entrada o salida), no del
   // estado general de la reserva: antes reutilizaba etiquetaEstadoTemporal(r),
