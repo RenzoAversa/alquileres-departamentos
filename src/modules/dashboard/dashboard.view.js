@@ -21,7 +21,12 @@ const kpi = (valor, etiqueta, extra = null, tono = '') =>
 
 function chipVariacion(actual, anterior, buenoSiSube) {
   const v = variacion(actual, anterior);
-  if (v === null) return el('span', { class: 'delta delta--good' }, 'nuevo');
+  // Sin período anterior con el que comparar (v === null): no hay nada
+  // que anunciar, así que no se muestra ninguna etiqueta — mostrar "nuevo"
+  // en verde se leía como si fuera buena noticia, cuando solo significa
+  // que no hay base de comparación. Distinto del caso "ambos períodos en
+  // cero" (v === 0, ese sí compara y da "→ 0% vs anterior").
+  if (v === null) return null;
   const flecha = v > 0 ? '↑' : v < 0 ? '↓' : '→';
   const bueno = v === 0 ? null : ((v > 0) === buenoSiSube);
   const clase = v === 0 ? 'delta--neutro' : (bueno ? 'delta--good' : 'delta--bad');

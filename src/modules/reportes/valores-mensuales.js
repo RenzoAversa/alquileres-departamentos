@@ -17,7 +17,11 @@ import { variacion } from '../../core/metricas.js';
 // que aclara, así que ahí solo se muestra el delta en puntos.
 export function variacionTexto(actual, anterior, formatoValor = money, { mostrarPct = true } = {}) {
   const pct = variacion(actual, anterior);
-  if (pct === null) return { texto: 'nuevo', color: 'var(--texto-muted)' };
+  // Sin período anterior con el que comparar (pct === null): no hay nada
+  // que mostrar — sin esto se leía "nuevo", que parece un anuncio en vez
+  // de "no hay base de comparación". Distinto de "ambos en cero" (pct===0,
+  // ese sí compara y muestra "—" más abajo).
+  if (pct === null) return null;
   if (actual === anterior) return { texto: '—', color: 'var(--texto-muted)' };
   const diff = actual - anterior;
   const signo = diff > 0 ? '+' : '';
@@ -27,8 +31,9 @@ export function variacionTexto(actual, anterior, formatoValor = money, { mostrar
 }
 
 export function nodoVariacion(actual, anterior, formatoValor = money, opciones) {
-  const { texto, color } = variacionTexto(actual, anterior, formatoValor, opciones);
-  return el('span', { class: 'variacion-mensual', style: `color:${color}` }, texto);
+  const resultado = variacionTexto(actual, anterior, formatoValor, opciones);
+  if (!resultado) return null;
+  return el('span', { class: 'variacion-mensual', style: `color:${resultado.color}` }, resultado.texto);
 }
 
 // Fila de valores por mes: una "tarjeta" chica por mes con una o más
