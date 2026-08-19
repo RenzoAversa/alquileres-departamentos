@@ -15,6 +15,8 @@ import { generarGraficosTortaPDF } from '../../core/pdf.js';
 import { graficoTorta } from '../../core/graficos.js';
 import { sesion } from '../../core/sesion.js';
 import { notificacionesService } from '../../core/notificaciones.service.js';
+import { abrirDetalleReserva } from '../reservas/detalle.js';
+import { irACalendario } from '../calendario/ir-a-calendario.js';
 
 const kpi = (valor, etiqueta, extra = null, tono = '') =>
   el('div', { class: `kpi ${tono}` }, [el('div', { class: 'kpi__valor' }, valor), el('div', { class: 'kpi__label' }, etiqueta), extra].filter(Boolean));
@@ -35,6 +37,7 @@ function chipVariacion(actual, anterior, buenoSiSube) {
 
 export async function render(container) {
   const verDinero = sesion.puede('verDinero');
+  const gestionarPagos = sesion.puede('gestionarPagos');
   container.append(el('h1', { class: 'page-title' }, 'Panel'));
 
   const contSaldos = el('div', {});
@@ -64,6 +67,17 @@ export async function render(container) {
   const unidades = res[0];
   const reservasRecientes = res[1];
   const cuentas = verDinero ? (res[2] || []) : [];
+
+  // Cuentas para "Ver / Pagar" de Próximas reservas: si ya las trajimos
+  // arriba (verDinero), se reusan sin pedir nada de nuevo. Si algún rol
+  // llegara a tener gestionarPagos sin verDinero, se piden recién ahí
+  // (mismo patrón de carga diferida que reservas.view.js/calendario.view.js).
+  let cuentasCache = verDinero ? cuentas : null;
+  async function cuentasLazy() {
+    if (!gestionarPagos) return [];
+    if (!cuentasCache) cuentasCache = await cuentasService.getAll();
+    return cuentasCache;
+  }
 
   // ---- Saldos por cuenta (solo con permiso) ----
   contSaldos.innerHTML = '';
@@ -314,14 +328,28 @@ export async function render(container) {
     .filter((r) => r.estado !== 'cancelada' && r.fechaEntrada >= hoy)
     .sort((a, b) => a.fechaEntrada.localeCompare(b.fechaEntrada))
     .slice(0, 5);
+  function filaProxima(r) {
+    const acciones = el('div', { style: 'display:flex;gap:8px;flex-wrap:wrap;align-items:center' }, [
+      el('span', { class: 'badge badge--info' }, `${fecha(r.fechaEntrada)} → ${fecha(r.fechaSalida)}`),
+      el('button', { class: 'btn btn--ghost btn--sm', type: 'button', onClick: () => irACalendario(r) }, 'Ver en calendario')
+    ]);
+    if (gestionarPagos) {
+      acciones.append(el('button', {
+        class: 'btn btn--primary btn--sm', type: 'button',
+        onClick: async () => abrirDetalleReserva(r, await cuentasLazy(), null)
+      }, 'Ver / Pagar'));
+    }
+    return el('div', { class: 'lista__item' }, [
+      el('div', {}, [el('strong', {}, r.unidadNombre || 'Unidad'), el('span', { class: 'muted' }, ` · ${r.huesped?.nombre || ''}`)]),
+      acciones
+    ]);
+  }
+
   contProx.innerHTML = '';
   contProx.append(el('div', { class: 'card' }, [
     el('h3', {}, 'Próximas reservas'),
     proximas.length
-      ? el('div', {}, proximas.map((r) => el('div', { class: 'lista__item' }, [
-          el('div', {}, [el('strong', {}, r.unidadNombre || 'Unidad'), el('span', { class: 'muted' }, ` · ${r.huesped?.nombre || ''}`)]),
-          el('span', { class: 'badge badge--info' }, `${fecha(r.fechaEntrada)} → ${fecha(r.fechaSalida)}`)
-        ])))
+      ? el('div', {}, proximas.map((r) => filaProxima(r)))
       : el('p', { class: 'muted' }, 'No hay próximas reservas cargadas.')
   ]));
 }
