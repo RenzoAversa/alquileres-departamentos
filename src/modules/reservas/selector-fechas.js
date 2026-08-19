@@ -7,9 +7,21 @@
 //   sel.setUnidad(unidadId);          // trae y cachea sus reservas
 //   sel.element                        // nodo para insertar en el form
 //   sel.getRango()                     // { entrada, salida }
+//
+// mostrarSinUnidad: pinta el calendario sin ninguna unidad elegida (todo
+// libre) para pantallas que no consultan ocupación, solo eligen un rango.
+//
+// permitirPasado: el pasado se elige libre, sin el pedido de confirmación
+// ni el tope de 1 año de la reserva retroactiva. Para pantallas de reporte
+// donde el pasado es el caso normal (ej. "mes pasado"), no para Reservas.
+//
+// abrirSelectorFechas({ desde, hasta, permitirPasado }) envuelve este
+// componente en un modal (Cancelar/Aplicar) y devuelve una Promise con el
+// rango elegido, o null si se cancela. Pensado para botones "11 ago – 17
+// ago" que abren el calendario en vez de tenerlo siempre desplegado.
 // ============================================================
 import { reservasService } from '../../services/reservas.service.js';
-import { el, toast, confirmar, noches } from '../../core/ui.js';
+import { el, toast, confirmar, noches, abrirModal, boton } from '../../core/ui.js';
 import { hoyISO, masDias, diasDelMes, diaSemana } from '../../core/metricas.js';
 
 const MESES = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
@@ -19,7 +31,7 @@ const MESES = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', '
 // molestar el uso real de "me olvidé de cargar esta reserva".
 const DIAS_LIMITE_RETRO = 365;
 
-export function crearSelectorFechas({ onCambio, excluirId = null, mostrarSinUnidad = false } = {}) {
+export function crearSelectorFechas({ onCambio, excluirId = null, mostrarSinUnidad = false, permitirPasado = false } = {}) {
   let unidadId = null;
   const cache = new Map(); // unidadId -> reservas[]
   const hoy = hoyISO();
@@ -94,7 +106,7 @@ export function crearSelectorFechas({ onCambio, excluirId = null, mostrarSinUnid
   }
 
   function estadoDia(iso, reservas) {
-    if (iso < hoy && !modoRetro) return 'pasado';
+    if (iso < hoy && !modoRetro && !permitirPasado) return 'pasado';
     return estadoOcupacionDia(iso, reservas);
   }
 
@@ -112,7 +124,7 @@ export function crearSelectorFechas({ onCambio, excluirId = null, mostrarSinUnid
     // Día pasado con el modo retroactivo todavía apagado: pedir confirmación
     // antes de desbloquear. La confirmación se pide ACÁ (al tocar el día),
     // no al guardar, para que el usuario sepa de entrada que puede cargarla.
-    if (iso < hoy && !modoRetro) {
+    if (iso < hoy && !modoRetro && !permitirPasado) {
       if (preguntandoRetro) return; // ya hay un modal de confirmación abierto
       if (iso < limiteRetro) {
         toast('No se pueden cargar reservas de más de un año atrás', 'alerta');
@@ -209,8 +221,10 @@ export function crearSelectorFechas({ onCambio, excluirId = null, mostrarSinUnid
       const estado = estadoDia(iso, reservasActual);
       const clases = ['selector-fechas__dia', `selector-fechas__dia--${estado}`];
       // Día pasado pero desbloqueado por el modo retroactivo: se pinta con
-      // su color real de ocupación, pero distinguible de un día futuro.
-      if (iso < hoy && estado !== 'pasado') clases.push('is-pasado-habilitado');
+      // su color real de ocupación, pero distinguible de un día futuro. No
+      // aplica con permitirPasado: ahí el pasado es el caso normal, no algo
+      // para destacar.
+      if (iso < hoy && estado !== 'pasado' && !permitirPasado) clases.push('is-pasado-habilitado');
       if (entrada && iso === entrada) clases.push('is-entrada');
       if (salida && iso === salida) clases.push('is-salida');
       if (entrada && !salida && iso > entrada) clases.push('is-en-rango-tentativo');
@@ -273,4 +287,53 @@ export function crearSelectorFechas({ onCambio, excluirId = null, mostrarSinUnid
     activarModoRetroSinConfirmar() { modoRetro = true; pintarCalendario(); },
     reset() { entrada = null; salida = null; pintarCalendario(); pintarResumen(); emitCambio(); }
   };
+}
+
+// Abre el selector de fechas en un modal (Cancelar/Aplicar) para pantallas
+// que no tienen un formulario donde embeberlo, solo eligen un rango.
+// Siempre sin unidad (mostrarSinUnidad): estas pantallas no consultan
+// ocupación, solo eligen un período.
+//
+//   const rango = await abrirSelectorFechas({ desde, hasta, permitirPasado: true });
+//   if (rango) { ... rango.desde, rango.hasta ... }  // null si cancelan
+export function abrirSelectorFechas({ desde = null, hasta = null, permitirPasado = false } = {}) {
+  return new Promise((resolve) => {
+    let aplicado = false;
+    const selector = crearSelectorFechas({ mostrarSinUnidad: true, permitirPasado });
+    if (desde && hasta) selector.setRangoInicial(desde, hasta);
+
+    const btnCancelar = boton('Cancelar', { variante: 'danger', onClick: () => modal.intentarCerrar() });
+    const btnAplicar = boton('Aplicar', {
+      variante: 'exito',
+      onClick: () => {
+        const rango = selector.getRango();
+        if (!rango.entrada || !rango.salida) {
+          toast('Elegí la fecha de entrada y de salida', 'alerta');
+          return;
+        }
+        aplicado = true;
+        modal.cerrar();
+        resolve({ desde: rango.entrada, hasta: rango.salida });
+      }
+    });
+
+    const box = el('div', { class: 'form' }, [
+      el('h3', { style: 'margin:0' }, 'Elegir fechas'),
+      selector.element,
+      el('div', { class: 'modal__acciones' }, [btnCancelar, btnAplicar])
+    ]);
+
+    const modal = abrirModal(box);
+
+    // Cubre cualquier camino de cierre que no sea Aplicar (Cancelar, Escape,
+    // el "¿descartar?" de intentarCerrar): en todos esos el overlay termina
+    // saliendo del DOM, así que ese es el único lugar que hace falta mirar
+    // para resolver la Promise, sin duplicar la lógica de cierre de cada uno.
+    const obs = new MutationObserver(() => {
+      if (document.body.contains(modal.overlay)) return;
+      obs.disconnect();
+      if (!aplicado) resolve(null);
+    });
+    obs.observe(document.body, { childList: true });
+  });
 }

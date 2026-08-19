@@ -12,7 +12,7 @@ export default [
         Date: "readonly", Promise: "readonly", Math: "readonly", JSON: "readonly",
         Object: "readonly", Array: "readonly", Number: "readonly", String: "readonly",
         Set: "readonly", Map: "readonly", Blob: "readonly", URL: "readonly",
-        Event: "readonly", CustomEvent: "readonly",
+        Event: "readonly", CustomEvent: "readonly", MutationObserver: "readonly",
         alert: "readonly", confirm: "readonly", localStorage: "readonly",
         L: "readonly", XLSX: "readonly"
       }
