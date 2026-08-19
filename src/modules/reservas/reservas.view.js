@@ -11,7 +11,7 @@ import { cuentasService } from '../../services/cuentas.service.js';
 import { el, toast, confirmar, money, fecha, fechaRelativa, etiquetaEstadoTemporal, noches, boton, abrirModal, botonRecargar, crearPaginado, campo, validarFormulario } from '../../core/ui.js';
 import { store } from '../../core/store.js';
 import { abrirDetalleReserva } from './detalle.js';
-import { abrirEdicionReserva } from './editar.js';
+import { abrirEdicionReserva, abrirEdicionHuesped } from './editar.js';
 import { crearSelectorFechas } from './selector-fechas.js';
 import { irACalendario } from '../calendario/ir-a-calendario.js';
 import { sesion } from '../../core/sesion.js';
@@ -206,7 +206,18 @@ export async function render(container) {
     // sueltos, se repite igual en todas). El departamento queda como dato
     // secundario, debajo.
     const nombreHuesped = (r.huesped?.nombre || '').trim() || 'Sin nombre';
-    const titulo = el('div', { class: 'reserva-linea' }, [el('strong', {}, nombreHuesped)]);
+    // Clickeable solo si puede editar: abre el formulario de datos del
+    // huésped (nombre/teléfono/email). Sigue siendo el título del ítem
+    // (mismo tamaño/negrita), solo se le agrega el subrayado punteado +
+    // cursor como pista de que se puede tocar.
+    const nombreEl = puedeEditar
+      ? el('button', {
+          type: 'button', class: 'nombre-huesped nombre-huesped--editable',
+          title: 'Editar datos del huésped',
+          onClick: () => abrirEdicionHuesped(r, cargarLista)
+        }, nombreHuesped)
+      : el('strong', { class: 'nombre-huesped' }, nombreHuesped);
+    const titulo = el('div', { class: 'reserva-linea' }, [nombreEl]);
     if (verDinero) titulo.append(el('span', { class: `badge ${info.clase}` }, info.label));
     if (estadoTemporal) titulo.append(el('span', { class: 'small', style: `color:${estadoTemporal.color}` }, estadoTemporal.texto));
 

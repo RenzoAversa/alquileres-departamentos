@@ -739,6 +739,21 @@ input:not([type="checkbox"]):not([type="radio"]):focus, select:focus, textarea:f
 .txt-ok { color: var(--ok); }
 .txt-alerta { color: var(--alerta); }
 
+/* Nombre del huésped: sigue siendo el título del ítem (mismo tamaño/negrita
+   que un <strong>), pero cuando es clickeable (rol con permiso de editar)
+   se le agrega un subrayado punteado + cursor como pista, sin llegar a
+   parecer un botón (sin fondo ni borde). */
+.nombre-huesped { font-weight: 700; }
+button.nombre-huesped {
+  background: none; border: none; padding: 0; margin: 0;
+  font: inherit; font-weight: 700; color: inherit; text-align: left;
+}
+.nombre-huesped--editable {
+  cursor: pointer;
+  border-bottom: 1px dashed var(--texto-muted);
+}
+.nombre-huesped--editable:hover { color: var(--color-primario); border-bottom-color: var(--color-primario); }
+
 .reserva-linea { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 
 /* Menú desplegable de reservas por edificio/departamento */

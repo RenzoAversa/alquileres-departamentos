@@ -165,3 +165,53 @@ export function abrirEdicionReserva(reserva, unidades, onGuardar) {
 }
 
 function emailValido(v) { return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.trim()); }
+
+// Editar solo los datos del huésped (nombre/teléfono/email) de ESTA reserva.
+// A diferencia de abrirEdicionReserva() (que además toca unidad/fechas/precio),
+// esto es lo que se abre al tocar el nombre en la lista: 1 sola escritura,
+// sin tocar las demás reservas que pueda tener la misma persona (si las
+// tiene, quedan con el dato viejo — decisión explícita, ver Fase 5 del pedido).
+export function abrirEdicionHuesped(reserva, onGuardar) {
+  const inNombre = el('input', { type: 'text', value: reserva.huesped?.nombre || '' });
+  const inTelefono = el('input', { type: 'text', value: reserva.huesped?.telefono || '' });
+  const inEmail = el('input', { type: 'email', value: reserva.huesped?.email || '', placeholder: 'nombre@mail.com' });
+
+  const btn = boton('Guardar', { variante: 'exito', tipo: 'submit' });
+  const btnCancelar = boton('Cancelar', { variante: 'danger', onClick: () => modal.intentarCerrar() });
+  const form = el('form', { class: 'form' }, [
+    el('h3', { style: 'margin:0 0 8px' }, 'Editar huésped'),
+    campo('Nombre', inNombre, { requerido: true }),
+    campo('Teléfono', inTelefono),
+    campo('Email', inEmail),
+    el('div', { class: 'modal__acciones' }, [
+      btnCancelar,
+      btn
+    ])
+  ]);
+
+  const modal = abrirModal(form);
+
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const errores = validarFormulario([
+      { elemento: inNombre, validar: () => !inNombre.value.trim() && 'Ingresá el nombre del huésped.' },
+      { elemento: inEmail, validar: () => inEmail.value.trim() && !emailValido(inEmail.value) && 'Ingresá un email válido.' }
+    ]);
+    if (errores.length) return;
+
+    btn.disabled = true; btn.textContent = 'Guardando…';
+    btnCancelar.disabled = true;
+    modal.setGuardando(true);
+    try {
+      const huesped = { nombre: inNombre.value.trim(), telefono: inTelefono.value.trim(), email: inEmail.value.trim() };
+      await reservasService.update(reserva.id, { huesped });
+      toast('Huésped actualizado', 'ok');
+      modal.cerrar();
+      if (onGuardar) onGuardar();
+    } catch (err) {
+      console.error(err); toast('No se pudo guardar', 'alerta');
+      btn.disabled = false; btn.textContent = 'Guardar';
+      btnCancelar.disabled = false; modal.setGuardando(false);
+    }
+  });
+}
