@@ -60,7 +60,7 @@ function etiquetaEncaje({ tipo, pegaAntes }) {
       ? { texto: 'Egresa gente cuando llega la reserva actual', clase: 'badge--warn' }
       : { texto: 'Ingresa gente cuando se va la reserva actual', clase: 'badge--warn' };
   }
-  return { texto: 'Sin encaje', clase: 'badge--muted' };
+  return { texto: 'No encaja', clase: 'badge--muted' };
 }
 
 // Mini calendario del mes de `entrada`, con las reservas de esta unidad
