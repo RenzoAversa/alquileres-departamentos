@@ -13,6 +13,7 @@ import { store } from '../../core/store.js';
 import { abrirDetalleReserva } from './detalle.js';
 import { abrirEdicionReserva } from './editar.js';
 import { crearSelectorFechas } from './selector-fechas.js';
+import { irACalendario } from '../calendario/ir-a-calendario.js';
 import { sesion } from '../../core/sesion.js';
 import { hoyISO, masDias } from '../../core/metricas.js';
 
@@ -207,7 +208,9 @@ export async function render(container) {
       ? el('div', { class: 'muted small' }, `${money(total)}${saldo > 0 ? ` · saldo ${money(saldo)}` : ''}`)
       : null;
 
-    const acciones = el('div', { style: 'display:flex;gap:8px;flex-wrap:wrap' }, []);
+    const acciones = el('div', { style: 'display:flex;gap:8px;flex-wrap:wrap' }, [
+      el('button', { class: 'btn btn--ghost btn--sm', type: 'button', onClick: () => irACalendario(r) }, 'Ver en calendario')
+    ]);
     if (puedeEditar) acciones.append(el('button', { class: 'btn btn--ghost btn--sm', type: 'button', onClick: () => abrirEdicionReserva(r, unidades, cargarLista) }, 'Editar'));
     if (gestionarPagos) acciones.append(el('button', { class: 'btn btn--primary btn--sm', type: 'button', onClick: async () => abrirDetalleReserva(r, await cuentasLazy(), cargarLista) }, 'Ver / Pagar'));
     if (puedeEliminar) acciones.append(el('button', {

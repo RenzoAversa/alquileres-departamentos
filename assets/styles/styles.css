@@ -694,6 +694,18 @@ input:not([type="checkbox"]):not([type="radio"]):focus, select:focus, textarea:f
   margin: var(--sp-3) 0 0; font-size: .78rem; color: var(--texto-muted);
 }
 
+/* Resaltado momentáneo de la banda al llegar desde "Ver en calendario"
+   (Panel/Reservas — ver ir-a-calendario.js). Pulso de contorno en el color
+   primario, 2 segundos, se saca sola. En prefers-reduced-motion no hay
+   animación, solo un contorno fijo que se retira por JS con setTimeout. */
+@keyframes cal-banda-destacar {
+  0%, 100% { box-shadow: 0 0 0 3px var(--color-primario), 0 4px 12px color-mix(in srgb, var(--color-primario) 45%, transparent); }
+  50% { box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-primario) 35%, transparent), 0 4px 12px color-mix(in srgb, var(--color-primario) 45%, transparent); }
+}
+.cal-banda--destacada {
+  animation: cal-banda-destacar 1s ease-in-out 2;
+}
+
 /* Pantallas anchas: días más holgados. Móvil: más compacto. */
 @media (min-width: 1500px) { .cal, .cal-guia-hoy { --cal-col: 69px; } }
 @media (max-width: 640px) {
@@ -716,6 +728,7 @@ input:not([type="checkbox"]):not([type="radio"]):focus, select:focus, textarea:f
 @media (prefers-reduced-motion: reduce) {
   .cal-banda { transition: none; }
   .cal-banda:hover { transform: none; }
+  .cal-banda--destacada { animation: none; box-shadow: 0 0 0 3px var(--color-primario); }
 }
 
 /* ============================================================

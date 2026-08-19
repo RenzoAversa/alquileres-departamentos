@@ -16,9 +16,10 @@ import { cuentasService } from '../../services/cuentas.service.js';
 import { abrirDetalleReserva } from '../reservas/detalle.js';
 import { sesion } from '../../core/sesion.js';
 import { diasDe, hoyISO, diaSemana, letraDia } from '../../core/metricas.js';
-import { el, spinner, vacio, fecha, money, compararPiso } from '../../core/ui.js';
+import { el, spinner, vacio, fecha, money, compararPiso, toast } from '../../core/ui.js';
 import { fechaCorta } from '../notificaciones/tabs/_comunes.js';
 import { tramosDeMes } from '../../core/calendario-tape.js';
+import { store } from '../../core/store.js';
 
 const pad = (n) => String(n).padStart(2, '0');
 
@@ -33,6 +34,18 @@ export async function render(container) {
   let mes = ahora.getMonth() + 1; // 1-12
   let filtroEdificio = '';
   let filtroUnidad = '';
+
+  // Reserva a resaltar, si llegamos acá desde "Ver en calendario" (Panel o
+  // Reservas — ver ir-a-calendario.js). Se consume una sola vez: se lee y
+  // se limpia del store de una, y se arranca directo en su mes.
+  let destacada = store.get('reservaDestacada');
+  if (destacada) store.set('reservaDestacada', null);
+  if (destacada?.fechaEntrada) {
+    const [y, m] = destacada.fechaEntrada.split('-');
+    anio = Number(y); mes = Number(m);
+  }
+  const prefiereMenosMovimiento = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
   // Filtro propio de "Movimientos del mes": independiente del filtro de
   // arriba, para poder mirar el tape chart de un edificio y a la vez
   // revisar movimientos de otro (o de todos).
@@ -154,6 +167,7 @@ export async function render(container) {
     return el('button', {
       class: clases.join(' '),
       type: 'button',
+      'data-reserva-id': r.id,
       title: `${nombre} · ${detalle}`,
       'aria-label': `${nombre}, ${detalle}`,
       onClick: async () => abrirDetalleReserva(r, await cuentasLazy(), pintarForzado)
@@ -190,6 +204,19 @@ export async function render(container) {
 
     const porUnidad = {};
     reservas.forEach((r) => { (porUnidad[r.unidadId] = porUnidad[r.unidadId] || []).push(r); });
+
+    // Si venimos con una reserva para resaltar y el filtro de arriba la está
+    // escondiendo, se lo limpiamos (en vez de dejarla invisible sin
+    // explicación) y se vuelve a pintar ya con el filtro correcto.
+    if (destacada && (filtroEdificio || filtroUnidad)) {
+      const rDestacada = reservas.find((r) => r.id === destacada.id);
+      if (rDestacada && !unidadesFiltradas.some((u) => u.id === rDestacada.unidadId)) {
+        filtroEdificio = ''; filtroUnidad = '';
+        selEdificio.value = ''; refrescarOpcionesUnidad();
+        toast('Se quitó el filtro de departamento para poder mostrar la reserva', 'info');
+        return pintar({ forzar });
+      }
+    }
 
     cont.innerHTML = '';
 
@@ -297,6 +324,26 @@ export async function render(container) {
       el('div', { class: 'cal-scroll' }, lienzo),
       el('p', { class: 'cal-pista' }, 'Tocá una estadía para ver el detalle de la reserva.')
     ]));
+
+    // Resaltar + hacer scroll hasta la banda de la reserva marcada. Se
+    // consume una sola vez: los repintados posteriores (cambiar de mes,
+    // tocar un filtro) no vuelven a disparar esto.
+    if (destacada) {
+      const idBuscada = destacada.id;
+      destacada = null;
+      requestAnimationFrame(() => {
+        const banda = cont.querySelector(`[data-reserva-id="${idBuscada}"]`);
+        if (!banda) { toast('No se encontró la reserva en el calendario', 'alerta'); return; }
+        banda.scrollIntoView({ behavior: prefiereMenosMovimiento ? 'auto' : 'smooth', block: 'center', inline: 'center' });
+        banda.classList.add('cal-banda--destacada');
+        // setTimeout en vez de esperar el evento animationend: más robusto
+        // (no depende de que la animación llegue a dispararlo, ej. si la
+        // pestaña pierde foco a mitad de camino) y funciona igual para el
+        // caso prefers-reduced-motion, que no anima pero sí necesita que
+        // el contorno se saque solo.
+        setTimeout(() => banda.classList.remove('cal-banda--destacada'), 2000);
+      });
+    }
 
     // ---- Movimientos del mes: entradas y salidas, agrupadas por día.
     // Plegada por default, con su propio filtro de complejo/departamento
