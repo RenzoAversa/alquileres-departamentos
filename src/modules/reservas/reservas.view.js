@@ -200,9 +200,17 @@ export async function render(container) {
     const info = ETIQUETAS_PAGO[estadoPagoDe(pagado, total)];
     const estadoTemporal = etiquetaEstadoTemporal(r);
 
-    const titulo = el('div', { class: 'reserva-linea' }, [el('strong', {}, r.unidadNombre || 'Unidad')]);
+    // El huésped es el dato principal (negrita): dentro de un grupo ya
+    // agrupado por edificio, lo que distingue una reserva de otra es quién
+    // se aloja, no el departamento (ya está en el título del grupo o, para
+    // sueltos, se repite igual en todas). El departamento queda como dato
+    // secundario, debajo.
+    const nombreHuesped = (r.huesped?.nombre || '').trim() || 'Sin nombre';
+    const titulo = el('div', { class: 'reserva-linea' }, [el('strong', {}, nombreHuesped)]);
     if (verDinero) titulo.append(el('span', { class: `badge ${info.clase}` }, info.label));
     if (estadoTemporal) titulo.append(el('span', { class: 'small', style: `color:${estadoTemporal.color}` }, estadoTemporal.texto));
+
+    const subtitulo = el('div', { class: 'muted small' }, r.unidadNombre || 'Unidad');
 
     const infoImporte = verDinero
       ? el('div', { class: 'muted small' }, `${money(total)}${saldo > 0 ? ` · saldo ${money(saldo)}` : ''}`)
@@ -224,11 +232,12 @@ export async function render(container) {
 
     const lineaFechas = el('span', {
       class: 'muted small', title: `${fecha(r.fechaEntrada)} → ${fecha(r.fechaSalida)}`
-    }, `${r.huesped?.nombre || ''} · ${fechaRelativa(r.fechaEntrada)} → ${fechaRelativa(r.fechaSalida)}`);
+    }, `${fechaRelativa(r.fechaEntrada)} → ${fechaRelativa(r.fechaSalida)}`);
 
     return el('div', { class: 'lista__item' }, [
       el('div', {}, [
         titulo,
+        subtitulo,
         lineaFechas,
         infoImporte
       ].filter(Boolean)),

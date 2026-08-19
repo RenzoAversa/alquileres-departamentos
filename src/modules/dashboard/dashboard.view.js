@@ -339,8 +339,11 @@ export async function render(container) {
         onClick: async () => abrirDetalleReserva(r, await cuentasLazy(), null)
       }, 'Ver / Pagar'));
     }
+    // Mismo criterio que en Reservas: el huésped es el dato principal
+    // (negrita), el departamento queda secundario.
+    const nombreHuesped = (r.huesped?.nombre || '').trim() || 'Sin nombre';
     return el('div', { class: 'lista__item' }, [
-      el('div', {}, [el('strong', {}, r.unidadNombre || 'Unidad'), el('span', { class: 'muted' }, ` · ${r.huesped?.nombre || ''}`)]),
+      el('div', {}, [el('strong', {}, nombreHuesped), el('span', { class: 'muted' }, ` · ${r.unidadNombre || 'Unidad'}`)]),
       acciones
     ]);
   }
