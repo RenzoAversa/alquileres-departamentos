@@ -9,7 +9,7 @@ import { reservasService } from '../../services/reservas.service.js';
 import { movimientosService } from '../../services/movimientos.service.js';
 import { cuentasService } from '../../services/cuentas.service.js';
 import { el, spinner, money, fecha, toast } from '../../core/ui.js';
-import { hoyISO, masDias, diasDe, periodoAnterior, metricasPeriodo, metricasOcupacion, variacion } from '../../core/metricas.js';
+import { hoyISO, masDias, diasDe, periodoAnterior, metricasPeriodo, metricasOcupacion, bucketsOcupacion, variacion } from '../../core/metricas.js';
 import { exportarReporte, exportarGraficosTorta } from '../../core/excel.js';
 import { generarGraficosTortaPDF } from '../../core/pdf.js';
 import { graficoTorta } from '../../core/graficos.js';
@@ -92,36 +92,56 @@ export async function render(container) {
     ])
   ]));
 
-  // ---- Ocupación últimos 7 días ----
-  contOcu.innerHTML = '';
-  const barras = [];
-  for (let i = 6; i >= 0; i--) {
-    const d = masDias(hoy, -i);
-    const ocup = reservasRecientes.filter((r) => r.estado !== 'cancelada' && r.fechaEntrada <= d && r.fechaSalida > d).length;
-    const pct = activas.length ? Math.round((ocup / activas.length) * 100) : 0;
-    const [, mm, dd] = d.split('-');
-    barras.push(el('div', { class: 'barra' }, [
-      el('div', { class: 'barra__valor' }, `${pct}%`),
-      el('div', { class: 'barra__col' }, el('div', { class: 'barra__fill', style: `height:${pct}%` })),
-      el('div', { class: 'barra__label' }, `${dd}/${mm}`)
+  // ---- Ocupación: sigue el período elegido en la Comparativa (ver más
+  // abajo). Arranca en 7 días (mismo rango que reservasRecientes, así el
+  // primer pintado es instantáneo) y se recalcula, con los MISMOS datos que
+  // ya trajo la Comparativa (sin consultas nuevas), cada vez que cambia el
+  // período — ver cargarDatos() más abajo.
+  let periodo = { desde: masDias(hoy, -6), hasta: hoy, nombre: '7d' };
+
+  function sufijoPeriodo(p) {
+    if (p.nombre === 'hoy') return 'hoy';
+    if (p.nombre === '7d') return 'últimos 7 días';
+    if (p.nombre === '30d') return 'últimos 30 días';
+    const [, m1, d1] = p.desde.split('-');
+    const [, m2, d2] = p.hasta.split('-');
+    return `${d1}/${m1} a ${d2}/${m2}`;
+  }
+
+  // Agrupa según el largo del período (día / semana / mes, ver
+  // bucketsOcupacion) para que un rango de 30+ días no termine con una
+  // barra por día, ilegible en mobile. Con más de 7 barras se usa el mismo
+  // modificador de scroll horizontal que Reportes (barras--valores).
+  function pintarOcupacion(reservas) {
+    contOcu.innerHTML = '';
+    const buckets = bucketsOcupacion(periodo.desde, periodo.hasta);
+    const barras = buckets.map((b) => {
+      const pct = Math.round(metricasOcupacion(reservas, activas.length, b.desde, b.hasta).ocupacion);
+      return el('div', { class: 'barra' }, [
+        el('div', { class: 'barra__valor' }, `${pct}%`),
+        el('div', { class: 'barra__col' }, el('div', { class: 'barra__fill', style: `height:${pct}%` })),
+        el('div', { class: 'barra__label' }, b.label)
+      ]);
+    });
+    const claseBarras = buckets.length > 7 ? 'barras barras--valores' : 'barras';
+    contOcu.append(el('div', { class: 'card' }, [
+      el('h3', {}, `Ocupación · ${sufijoPeriodo(periodo)}`),
+      el('div', { class: claseBarras }, barras)
     ]));
   }
-  contOcu.append(el('div', { class: 'card' }, [el('h3', {}, 'Ocupación · últimos 7 días'), el('div', { class: 'barras' }, barras)]));
 
-  // ---- Ocupación por departamento (torta, visible para todos los roles) ----
-  contOcuUnidad.innerHTML = '';
-  let ocupacionPorUnidad = [];
-  {
-    const desdeOcu = masDias(hoy, -6);
-    ocupacionPorUnidad = activas
+  // ---- Ocupación por departamento (visible para todos los roles) ----
+  function pintarOcupacionPorUnidad(reservas) {
+    contOcuUnidad.innerHTML = '';
+    const ocupacionPorUnidad = activas
       .map((u) => {
-        const propias = reservasRecientes.filter((r) => r.unidadId === u.id);
-        const m = metricasOcupacion(propias, 1, desdeOcu, hoy);
+        const propias = reservas.filter((r) => r.unidadId === u.id);
+        const m = metricasOcupacion(propias, 1, periodo.desde, periodo.hasta);
         return { label: u.nombre, valor: Math.round(m.ocupacion) };
       })
       .filter((d) => d.valor > 0)
       .sort((a, b) => b.valor - a.valor);
-    const headerOcu = el('div', { class: 'comp-header' }, [el('h3', {}, 'Ocupación por departamento · últimos 7 días')]);
+    const headerOcu = el('div', { class: 'comp-header' }, [el('h3', {}, `Ocupación por departamento · ${sufijoPeriodo(periodo)}`)]);
     const hojasGraficos = () => [
       { nombre: 'Ocupación por departamento', items: ocupacionPorUnidad, formatoValor: (n) => `${n}%` },
       ...(verDinero && datosCuentaExport.length ? [{ nombre: 'Ingresos por cuenta', items: datosCuentaExport, esMoneda: true, formatoValor: money }] : [])
@@ -141,7 +161,7 @@ export async function render(container) {
     headerOcu.append(btnExportarGraficos, btnExportarGraficosPDF);
 
     // Barras por departamento en vez de torta: cada % es la ocupación de
-    // ESE departamento en los últimos 7 días, independiente de los demás
+    // ESE departamento en el período elegido, independiente de los demás
     // (no es una parte de un total). Con una torta un 100% se leía como
     // "domina el gráfico"; con barras no hay esa ambigüedad. Reusa
     // .occ-row/.occ-bar, ya definidas en el CSS para esto y sin usar.
@@ -151,10 +171,13 @@ export async function render(container) {
           el('div', { class: 'occ-bar' }, el('div', { class: 'occ-bar__fill', style: `width:${d.valor}%` })),
           el('span', { class: 'occ-row__val' }, `${d.valor}%`)
         ])))
-      : el('p', { class: 'muted small' }, 'No hay ocupación registrada en los últimos 7 días.');
+      : el('p', { class: 'muted small' }, 'No hay ocupación registrada en este período.');
 
     contOcuUnidad.append(el('div', { class: 'card' }, [headerOcu, filasOcupacion]));
   }
+
+  pintarOcupacion(reservasRecientes);
+  pintarOcupacionPorUnidad(reservasRecientes);
 
   // ---- Movimientos de la carga inicial ----
   // Se piden UNA vez, con el rango más amplio que necesita la Comparativa
@@ -163,10 +186,9 @@ export async function render(container) {
   // este mismo array en memoria, en vez de pedirlo aparte (antes eran dos
   // consultas con rangos que se pisaban). Si después cambiás el período de
   // la Comparativa, esa sí vuelve a consultar Firestore (rango distinto).
-  const periodoInicial = { desde: masDias(hoy, -6), hasta: hoy };
-  const prevInicial = periodoAnterior(periodoInicial.desde, periodoInicial.hasta);
+  const prevInicial = periodoAnterior(periodo.desde, periodo.hasta);
   let movimientosCacheInicial = verDinero
-    ? await movimientosService.buscar([['fecha', '>=', prevInicial.desde], ['fecha', '<=', periodoInicial.hasta]], ['fecha', 'asc'])
+    ? await movimientosService.buscar([['fecha', '>=', prevInicial.desde], ['fecha', '<=', periodo.hasta]], ['fecha', 'asc'])
     : null;
 
   // ---- Ingresos por cuenta (solo con permiso) ----
@@ -191,8 +213,7 @@ export async function render(container) {
   }
 
   // ---- Comparativa por período ----
-  let periodo = { desde: masDias(hoy, -6), hasta: hoy, nombre: '7d' };
-
+  // (la variable `periodo` ya se declaró más arriba, la comparte con Ocupación)
   function pintarComparativa() {
     contComp.innerHTML = '';
     const presets = [
@@ -277,6 +298,12 @@ export async function render(container) {
       kpi(`${Math.round(act.ocupacion)}%`, 'Ocupación', chipVariacion(act.ocupacion, ant.ocupacion, true)),
       kpi(String(act.reservas), 'Reservas', chipVariacion(act.reservas, ant.reservas, true))
     );
+
+    // Ocupación sigue el período de la Comparativa: se repinta acá con el
+    // MISMO array de reservas que se acaba de traer arriba (rango período +
+    // período anterior), sin pedir nada nuevo a Firestore.
+    pintarOcupacion(reservas);
+    pintarOcupacionPorUnidad(reservas);
   }
 
   pintarComparativa();

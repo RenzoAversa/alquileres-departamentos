@@ -135,3 +135,79 @@ export function ultimosMeses(n, refFecha = new Date()) {
   }
   return out;
 }
+
+const MESES_CORTOS = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
+
+function finDeMes(iso) {
+  const [anio, mes] = iso.split('-').map(Number);
+  const ultimoDia = new Date(anio, mes, 0).getDate();
+  return `${anio}-${String(mes).padStart(2, '0')}-${String(ultimoDia).padStart(2, '0')}`;
+}
+
+function inicioMesSiguiente(iso) {
+  const [anio, mes] = iso.split('-').map(Number);
+  const anioSig = mes === 12 ? anio + 1 : anio;
+  const mesSig = mes === 12 ? 1 : mes + 1;
+  return `${anioSig}-${String(mesSig).padStart(2, '0')}-01`;
+}
+
+function labelDiaMes(iso) {
+  const [, m, d] = iso.split('-');
+  return `${parseInt(d, 10)} ${MESES_CORTOS[parseInt(m, 10) - 1]}`;
+}
+
+function labelRangoSemana(desde, hasta) {
+  const [, m1, d1] = desde.split('-');
+  const [, m2, d2] = hasta.split('-');
+  if (m1 === m2) return `${parseInt(d1, 10)}-${parseInt(d2, 10)} ${MESES_CORTOS[parseInt(m1, 10) - 1]}`;
+  return `${labelDiaMes(desde)}-${labelDiaMes(hasta)}`;
+}
+
+function labelMes(iso) {
+  const [a, m] = iso.split('-');
+  return `${MESES_CORTOS[parseInt(m, 10) - 1]} '${a.slice(2)}`;
+}
+
+// Divide [desde, hasta] en "buckets" para graficar ocupación a lo largo de
+// un período de cualquier largo, sin que un rango de 30+ días termine
+// mostrando una barra por día (ilegible en mobile):
+//   - hasta 10 días: un bucket por día
+//   - 11 a 60 días:  un bucket por semana (7 días, el último puede ser más corto)
+//   - más de 60 días: un bucket por mes calendario (el primero y el último
+//     pueden ser parciales si el rango no arranca/termina en 1° de mes)
+// Cada bucket trae su propio [desde, hasta] listo para pasarle a
+// metricasOcupacion(), y un label corto para el eje del gráfico.
+export function bucketsOcupacion(desde, hasta) {
+  const dias = diasDe(desde, hasta);
+
+  if (dias <= 10) {
+    const out = [];
+    for (let i = 0; i < dias; i++) {
+      const d = masDias(desde, i);
+      out.push({ desde: d, hasta: d, label: labelDiaMes(d) });
+    }
+    return out;
+  }
+
+  if (dias <= 60) {
+    const out = [];
+    let cur = desde;
+    while (cur <= hasta) {
+      const finSemana = masDias(cur, 6);
+      const fin = finSemana > hasta ? hasta : finSemana;
+      out.push({ desde: cur, hasta: fin, label: labelRangoSemana(cur, fin) });
+      cur = masDias(fin, 1);
+    }
+    return out;
+  }
+
+  const out = [];
+  let cur = desde;
+  while (cur <= hasta) {
+    const finMes = finDeMes(cur);
+    const fin = finMes > hasta ? hasta : finMes;
+    out.push({ desde: cur, hasta: fin, label: labelMes(cur) });
+    cur = inicioMesSiguiente(cur);
+  }
+  return out;
+}
