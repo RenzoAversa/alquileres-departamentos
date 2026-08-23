@@ -9,11 +9,12 @@ import { unidadesService } from '../../services/unidades.service.js';
 import { edificiosService } from '../../services/edificios.service.js';
 import { reservasService } from '../../services/reservas.service.js';
 import { cargarLeaflet } from '../../core/geo.js';
-import { el, spinner, money, toast, miniatura } from '../../core/ui.js';
+import { el, spinner, money, miniatura, rangoFechas } from '../../core/ui.js';
 import { store } from '../../core/store.js';
 import { navegar } from '../../core/router.js';
 import { appConfig } from '../../firebase/init.js';
 import { hoyISO, masDias } from '../../core/metricas.js';
+import { abrirSelectorFechas } from '../reservas/selector-fechas.js';
 
 const MOSTRAR_FOTOS = !!appConfig.features.fotos;
 
@@ -63,8 +64,19 @@ export async function render(container) {
   const sinUbic = unidades.filter((u) => !(u.ubicacion?.lat && u.ubicacion?.lng));
 
   // ----- Barra de filtro de disponibilidad -----
-  const inEntrada = el('input', { type: 'date', value: hoyISO() });
-  const inSalida = el('input', { type: 'date', value: masDias(hoyISO(), 2) });
+  // Acá las fechas son para buscar disponibilidad futura (igual que
+  // "Buscar disponibilidad"), así que el pasado se queda bloqueado con la
+  // misma confirmación de Reservas (permitirPasado en false, el default)
+  // en vez del modo libre de Panel/Reportes.
+  let entrada = hoyISO();
+  let salida = masDias(hoyISO(), 2);
+  const btnRango = el('button', { class: 'btn btn--ghost' }, rangoFechas(entrada, salida));
+  btnRango.addEventListener('click', async () => {
+    const rango = await abrirSelectorFechas({ desde: entrada, hasta: salida });
+    if (!rango) return;
+    entrada = rango.desde; salida = rango.hasta;
+    btnRango.textContent = rangoFechas(entrada, salida);
+  });
   const btnFiltrar = el('button', { class: 'btn btn--primary', type: 'button' }, 'Ver disponibles');
   const btnLimpiar = el('button', { class: 'btn btn--ghost', type: 'button' }, 'Limpiar');
   const resultadoFiltro = el('span', { class: 'muted small' }, '');
@@ -76,8 +88,7 @@ export async function render(container) {
 
   const barra = el('div', { class: 'card' }, [
     el('div', { class: 'map-filtro' }, [
-      campo('Entrada', inEntrada),
-      campo('Salida', inSalida),
+      campo('Fechas', btnRango),
       el('div', { class: 'map-filtro__acciones' }, [btnFiltrar, btnLimpiar])
     ]),
     leyenda
@@ -133,7 +144,7 @@ export async function render(container) {
       hijos.push(el('button', {
         class: 'btn btn--primary btn--sm btn--full', type: 'button', style: 'margin-top:6px',
         onClick: () => {
-          store.set('reservaPreset', { unidadId: u.id, entrada: inEntrada.value, salida: inSalida.value });
+          store.set('reservaPreset', { unidadId: u.id, entrada, salida });
           navegar('reservas');
         }
       }, 'Reservar'));
@@ -144,9 +155,6 @@ export async function render(container) {
 
   // ----- Acciones del filtro -----
   btnFiltrar.addEventListener('click', async () => {
-    const entrada = inEntrada.value, salida = inSalida.value;
-    if (new Date(salida) <= new Date(entrada)) { toast('La salida debe ser posterior a la entrada', 'alerta'); return; }
-
     btnFiltrar.disabled = true; btnFiltrar.textContent = 'Buscando…';
     // Reservas acotadas (solo las que podrían solapar)
     const reservas = await reservasService.buscar([['fechaSalida', '>=', entrada]]);
