@@ -319,6 +319,19 @@ export function fechaRelativa(iso) {
   return a === anioHoy ? base : `${base} ${a}`;
 }
 
+// Rango legible para botones/resúmenes de período: "11 ago – 17 ago" si
+// ambas puntas caen en el año actual (el caso común, no hace falta repetir
+// el año), "28 dic 2025 – 3 ene 2026" si alguna cae en otro año.
+export function rangoFechas(desde, hasta) {
+  if (!desde || !hasta) return '';
+  const anioHoy = hoyISO().slice(0, 4);
+  const [a1, m1, d1] = desde.split('-');
+  const [a2, m2, d2] = hasta.split('-');
+  const mismoAnioActual = a1 === anioHoy && a2 === anioHoy;
+  const parte = (a, m, d) => `${Number(d)} ${MESES_ABR[Number(m) - 1]}${mismoAnioActual ? '' : ' ' + a}`;
+  return `${parte(a1, m1, d1)} – ${parte(a2, m2, d2)}`;
+}
+
 // Etiqueta de estado temporal de una reserva ({ estado, fechaEntrada, fechaSalida }),
 // calculada contra hoyISO(). Usada en la lista de Reservas y en el Calendario.
 export function etiquetaEstadoTemporal(r) {

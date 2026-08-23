@@ -8,7 +8,7 @@ import { unidadesService } from '../../services/unidades.service.js';
 import { reservasService } from '../../services/reservas.service.js';
 import { movimientosService } from '../../services/movimientos.service.js';
 import { cuentasService } from '../../services/cuentas.service.js';
-import { el, spinner, money, fecha, toast } from '../../core/ui.js';
+import { el, spinner, money, fecha, rangoFechas } from '../../core/ui.js';
 import { hoyISO, masDias, diasDe, periodoAnterior, metricasPeriodo, metricasOcupacion, bucketsOcupacion, variacion } from '../../core/metricas.js';
 import { exportarReporte, exportarGraficosTorta } from '../../core/excel.js';
 import { generarGraficosTortaPDF } from '../../core/pdf.js';
@@ -17,6 +17,7 @@ import { sesion } from '../../core/sesion.js';
 import { notificacionesService } from '../../core/notificaciones.service.js';
 import { abrirDetalleReserva } from '../reservas/detalle.js';
 import { irACalendario } from '../calendario/ir-a-calendario.js';
+import { abrirSelectorFechas } from '../reservas/selector-fechas.js';
 
 const kpi = (valor, etiqueta, extra = null, tono = '') =>
   el('div', { class: `kpi ${tono}` }, [el('div', { class: 'kpi__valor' }, valor), el('div', { class: 'kpi__label' }, etiqueta), extra].filter(Boolean));
@@ -241,16 +242,20 @@ export async function render(container) {
         onClick: () => { periodo = { ...p }; pintarComparativa(); cargarDatos(); }
       }, p.label));
 
-    const inDesde = el('input', { type: 'date', value: periodo.desde });
-    const inHasta = el('input', { type: 'date', value: periodo.hasta });
-    const btnAplicar = el('button', {
+    // Rango personalizado: un botón que abre el calendario propio en un
+    // modal, en vez de dos <input type=date> nativos. permitirPasado: acá
+    // el pasado es un caso normal ("mes pasado", "trimestre anterior"), no
+    // algo que deba pedir confirmación como en Reservas. Elegir un rango en
+    // el modal ya aplica (no hace falta un botón "Aplicar" aparte).
+    const btnRango = el('button', {
       class: `chip-periodo ${periodo.nombre === 'custom' ? 'is-active' : ''}`, type: 'button',
-      onClick: () => {
-        if (new Date(inHasta.value) < new Date(inDesde.value)) { toast('El hasta debe ser posterior al desde', 'alerta'); return; }
-        periodo = { nombre: 'custom', desde: inDesde.value, hasta: inHasta.value };
+      onClick: async () => {
+        const rango = await abrirSelectorFechas({ desde: periodo.desde, hasta: periodo.hasta, permitirPasado: true });
+        if (!rango) return;
+        periodo = { nombre: 'custom', desde: rango.desde, hasta: rango.hasta };
         pintarComparativa(); cargarDatos();
       }
-    }, 'Aplicar');
+    }, rangoFechas(periodo.desde, periodo.hasta));
 
     const header = el('div', { class: 'comp-header' }, [el('h3', {}, 'Comparativa')]);
     if (verDinero) {
@@ -264,8 +269,7 @@ export async function render(container) {
     }
 
     const selectores = el('div', { class: 'periodo-barra' }, [
-      el('div', { class: 'periodo-chips' }, botones),
-      el('div', { class: 'periodo-custom' }, [inDesde, el('span', { class: 'muted' }, 'a'), inHasta, btnAplicar])
+      el('div', { class: 'periodo-chips' }, [...botones, btnRango])
     ]);
     const sub = el('p', { class: 'muted small' },
       `${fecha(periodo.desde)} a ${fecha(periodo.hasta)} · ${diasDe(periodo.desde, periodo.hasta)} día(s), comparado con el período anterior equivalente`);

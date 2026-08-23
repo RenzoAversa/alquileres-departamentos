@@ -799,6 +799,10 @@ button.nombre-huesped {
 
 /* Modal más ancho y con scroll para el detalle */
 .modal--ancho { max-width: 560px; width: 100%; max-height: 88vh; overflow-y: auto; }
+/* Modal del selector de fechas (abrirSelectorFechas): mismo ancho angosto
+   de .modal, pero con scroll propio — título + calendario + botones puede
+   no entrar en la altura disponible en un celular apaisado. */
+.modal--con-scroll { max-height: 88vh; overflow-y: auto; }
 .detalle-head { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--sp-4); margin-bottom: var(--sp-4); }
 
 /* Card plano (para bloques dentro del modal) */

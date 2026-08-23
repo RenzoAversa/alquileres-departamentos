@@ -317,7 +317,7 @@ export function abrirSelectorFechas({ desde = null, hasta = null, permitirPasado
       }
     });
 
-    const box = el('div', { class: 'form' }, [
+    const box = el('div', { class: 'form modal--con-scroll' }, [
       el('h3', { style: 'margin:0' }, 'Elegir fechas'),
       selector.element,
       el('div', { class: 'modal__acciones' }, [btnCancelar, btnAplicar])
