@@ -194,26 +194,18 @@ export async function render(container) {
   pintarOcupacion(reservasRecientes);
   pintarOcupacionPorUnidad(reservasRecientes);
 
-  // ---- Movimientos de la carga inicial ----
-  // Se piden UNA vez, con el rango más amplio que necesita la Comparativa
-  // de abajo (7 días + su período anterior equivalente). "Ingresos por
-  // cuenta" -que solo necesita los últimos 7 días- se deriva filtrando
-  // este mismo array en memoria, en vez de pedirlo aparte (antes eran dos
-  // consultas con rangos que se pisaban). Si después cambiás el período de
-  // la Comparativa, esa sí vuelve a consultar Firestore (rango distinto).
-  const prevInicial = periodoAnterior(periodo.desde, periodo.hasta);
-  let movimientosCacheInicial = verDinero
-    ? await movimientosService.buscar([['fecha', '>=', prevInicial.desde], ['fecha', '<=', periodo.hasta]], ['fecha', 'asc'])
-    : null;
-
   // ---- Ingresos por cuenta (solo con permiso) ----
-  // Se calcula sobre los movimientos de ingreso reales (no sobre el total
-  // de las reservas), así refleja en qué cuenta entró la plata de verdad.
-  contCanal.innerHTML = '';
+  // Sigue el período elegido en la Comparativa (igual que Ocupación, ver
+  // más abajo): se repinta en cargarDatos() con el MISMO array de
+  // movimientos que ya trae para los KPIs, sin pedir nada nuevo a
+  // Firestore. Se calcula sobre los movimientos de ingreso reales (no
+  // sobre el total de las reservas), así refleja en qué cuenta entró la
+  // plata de verdad.
   let datosCuentaExport = [];
-  if (verDinero) {
-    const desdeIngresos = masDias(hoy, -6);
-    const movsPeriodo = movimientosCacheInicial.filter((m) => m.fecha >= desdeIngresos);
+  function pintarCanal(movs) {
+    contCanal.innerHTML = '';
+    if (!verDinero) return;
+    const movsPeriodo = movs.filter((m) => m.fecha >= periodo.desde && m.fecha <= periodo.hasta);
     const porCuenta = {};
     movsPeriodo.filter((m) => m.tipo === 'ingreso').forEach((m) => {
       const id = m.cuentaId || 'sin_cuenta';
@@ -222,10 +214,20 @@ export async function render(container) {
     const nombreCuenta = (id) => cuentas.find((c) => c.id === id)?.nombre || 'Sin cuenta';
     datosCuentaExport = Object.entries(porCuenta).map(([id, valor]) => ({ label: nombreCuenta(id), valor }));
     contCanal.append(el('div', { class: 'card' }, [
-      el('h3', {}, 'Ingresos por cuenta'),
-      graficoTorta(datosCuentaExport, { formatoValor: (n) => money(n), titulo: 'Ingresos por cuenta · últimos 7 días' })
+      el('h3', {}, `Ingresos por cuenta · ${sufijoPeriodo(periodo)}`),
+      graficoTorta(datosCuentaExport, { formatoValor: (n) => money(n), titulo: `Ingresos por cuenta · ${sufijoPeriodo(periodo)}` })
     ]));
   }
+
+  // ---- Movimientos de la carga inicial ----
+  // Se piden UNA vez, con el rango más amplio que necesita la Comparativa
+  // de abajo (período elegido + su período anterior equivalente). Si
+  // después cambiás el período, cargarDatos() vuelve a consultar Firestore
+  // (rango distinto) — ver ahí.
+  const prevInicial = periodoAnterior(periodo.desde, periodo.hasta);
+  let movimientosCacheInicial = verDinero
+    ? await movimientosService.buscar([['fecha', '>=', prevInicial.desde], ['fecha', '<=', periodo.hasta]], ['fecha', 'asc'])
+    : null;
 
   // ---- Comparativa por período ----
   // (la variable `periodo` ya se declaró más arriba, la comparte con Ocupación)
@@ -317,11 +319,12 @@ export async function render(container) {
       kpi(String(act.reservas), 'Reservas', chipVariacion(act.reservas, ant.reservas, true))
     );
 
-    // Ocupación sigue el período de la Comparativa: se repinta acá con el
-    // MISMO array de reservas que se acaba de traer arriba (rango período +
-    // período anterior), sin pedir nada nuevo a Firestore.
+    // Ocupación e Ingresos por cuenta siguen el período de la Comparativa:
+    // se repintan acá con los MISMOS arrays que se acaban de traer arriba
+    // (rango período + período anterior), sin pedir nada nuevo a Firestore.
     pintarOcupacion(reservas);
     pintarOcupacionPorUnidad(reservas);
+    pintarCanal(movs);
   }
 
   pintarComparativa();
