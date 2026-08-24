@@ -11,13 +11,14 @@ import { unidadesService } from '../../services/unidades.service.js';
 import { edificiosService } from '../../services/edificios.service.js';
 import { movimientosService } from '../../services/movimientos.service.js';
 import { reservasService } from '../../services/reservas.service.js';
-import { el, toast, spinner, vacio, money, fecha, botonRecargar, crearPaginado } from '../../core/ui.js';
+import { el, spinner, vacio, money, fecha, rangoFechas, botonRecargar, crearPaginado } from '../../core/ui.js';
 import { hoyISO, masDias, diasDe, metricasPeriodo, rentabilidadPorUnidad, ultimosMeses } from '../../core/metricas.js';
 import { graficoLineas, graficoBarrasApiladas } from '../../core/graficos.js';
 import { exportarTendencias } from '../../core/excel.js';
 import { generarTendenciasPDF } from '../../core/pdf.js';
 import { sesion } from '../../core/sesion.js';
 import { nodoVariacion, valoresMensuales } from './valores-mensuales.js';
+import { abrirSelectorFechas } from '../reservas/selector-fechas.js';
 
 export async function render(container) {
   container.append(el('h1', { class: 'page-title' }, 'Reportes'));
@@ -54,9 +55,18 @@ export async function render(container) {
       { nombre: 'anio', label: 'Este año', desde: `${new Date().getFullYear()}-01-01`, hasta: hoyISO() }
     ];
     const chips = el('div', { class: 'periodo-chips' });
-    const inDesde = el('input', { type: 'date', value: periodo.desde });
-    const inHasta = el('input', { type: 'date', value: periodo.hasta });
-    const btnAplicar = el('button', { class: 'chip-periodo', type: 'button' }, 'Aplicar');
+    // Rango personalizado: mismo botón + modal que Panel > Comparativa,
+    // con permitirPasado ya que acá el pasado es el caso normal (reporte
+    // histórico). Elegir un rango en el modal ya aplica.
+    const btnRango = el('button', {
+      class: `chip-periodo ${periodo.nombre === 'custom' ? 'is-active' : ''}`, type: 'button',
+      onClick: async () => {
+        const rango = await abrirSelectorFechas({ desde: periodo.desde, hasta: periodo.hasta, permitirPasado: true });
+        if (!rango) return;
+        periodo = { nombre: 'custom', desde: rango.desde, hasta: rango.hasta };
+        pintarChips(); cargar();
+      }
+    }, rangoFechas(periodo.desde, periodo.hasta));
     const sub = el('p', { class: 'muted small' }, '');
 
     function pintarChips() {
@@ -65,19 +75,13 @@ export async function render(container) {
         class: `chip-periodo ${periodo.nombre === p.nombre ? 'is-active' : ''}`, type: 'button',
         onClick: () => { periodo = { ...p }; pintarChips(); cargar(); }
       }, p.label)));
-      btnAplicar.classList.toggle('is-active', periodo.nombre === 'custom');
+      btnRango.classList.toggle('is-active', periodo.nombre === 'custom');
+      btnRango.textContent = rangoFechas(periodo.desde, periodo.hasta);
+      chips.append(btnRango);
     }
-    btnAplicar.addEventListener('click', () => {
-      if (new Date(inHasta.value) < new Date(inDesde.value)) { toast('El hasta debe ser posterior al desde', 'alerta'); return; }
-      periodo = { nombre: 'custom', desde: inDesde.value, hasta: inHasta.value };
-      pintarChips(); cargar();
-    });
     pintarChips();
 
-    const selectores = el('div', { class: 'periodo-barra' }, [
-      chips,
-      el('div', { class: 'periodo-custom' }, [inDesde, el('span', { class: 'muted' }, 'a'), inHasta, btnAplicar])
-    ]);
+    const selectores = el('div', { class: 'periodo-barra' }, [chips]);
 
     const listaCont = el('div', {});
     contRent.append(el('div', { class: 'card' }, [header, selectores, sub, listaCont]));
