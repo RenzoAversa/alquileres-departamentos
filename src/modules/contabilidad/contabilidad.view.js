@@ -12,6 +12,7 @@ import { unidadesService } from '../../services/unidades.service.js';
 import { el, toast, confirmar, spinner, money, fecha, botonRecargar, crearPaginado, abrirModal, boton } from '../../core/ui.js';
 import { exportarReporte } from '../../core/excel.js';
 import { hoyISO } from '../../core/metricas.js';
+import { abrirSelectorFecha } from '../reservas/selector-fechas.js';
 
 const CATEGORIAS = ['alquiler', 'limpieza', 'servicios', 'mantenimiento', 'impuestos', 'comision', 'otro'];
 const TIPOS_CUENTA = { efectivo: 'Efectivo', banco: 'Transferencia / Banco', billetera: 'Billetera (MP)', tarjeta: 'Tarjeta' };
@@ -223,12 +224,28 @@ export async function render(container) {
       ...unidades.map((u) => el('option', { value: u.id }, u.nombre))
     ]);
 
+    // Fecha del movimiento: mismo calendario propio que el resto de la app,
+    // en su modo de una sola fecha (soloUnDia). permitirPasado porque acá
+    // cargar un movimiento de un día anterior es el caso normal (asentar
+    // un gasto/cobro con demora), no algo que amerite la confirmación de
+    // Reservas. El input oculto es el que viaja en el FormData del submit.
+    let fechaMov = hoyISO();
+    const inFecha = el('input', { type: 'hidden', name: 'fecha', value: fechaMov });
+    const btnFecha = el('button', { type: 'button', class: 'btn btn--ghost' }, fecha(fechaMov));
+    btnFecha.addEventListener('click', async () => {
+      const elegida = await abrirSelectorFecha({ fecha: fechaMov, permitirPasado: true });
+      if (!elegida) return;
+      fechaMov = elegida;
+      inFecha.value = fechaMov;
+      btnFecha.textContent = fecha(fechaMov);
+    });
+
     const form = el('form', { class: 'card form' }, [
       el('h3', {}, 'Nuevo movimiento'),
       fila([campo('Tipo', selTipo), campo('Monto', el('input', { name: 'monto', type: 'number', min: '0', required: true, placeholder: '25000' }))]),
       zonaCuentas,
       zonaCategoria,
-      fila([campo('Fecha', el('input', { name: 'fecha', type: 'date', required: true, value: hoyISO() })), campo('Imputar a', selUnidad)]),
+      fila([campo('Fecha', el('div', {}, [inFecha, btnFecha])), campo('Imputar a', selUnidad)]),
       campo('Descripción', el('input', { name: 'descripcion', placeholder: 'Detalle del movimiento' })),
       el('button', { class: 'btn btn--primary', type: 'submit' }, 'Guardar movimiento')
     ]);
@@ -259,7 +276,9 @@ export async function render(container) {
 
       toast('Movimiento guardado', 'ok');
       form.reset();
-      form.querySelector('[name=fecha]').value = hoyISO();
+      fechaMov = hoyISO();
+      inFecha.value = fechaMov;
+      btnFecha.textContent = fecha(fechaMov);
       await refrescarTodo();
     });
 

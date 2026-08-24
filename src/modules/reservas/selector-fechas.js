@@ -19,6 +19,12 @@
 // componente en un modal (Cancelar/Aplicar) y devuelve una Promise con el
 // rango elegido, o null si se cancela. Pensado para botones "11 ago – 17
 // ago" que abren el calendario en vez de tenerlo siempre desplegado.
+//
+// soloUnDia: un solo click elige la fecha (sin el flujo de dos clicks
+// entrada/salida). abrirSelectorFecha({ fecha, permitirPasado }) es el
+// equivalente de abrirSelectorFechas() para este modo: devuelve un ISO
+// suelto (o null si se cancela), para campos de una sola fecha (ej. la
+// fecha de un movimiento en Finanzas).
 // ============================================================
 import { reservasService } from '../../services/reservas.service.js';
 import { el, toast, confirmar, noches, abrirModal, boton } from '../../core/ui.js';
@@ -31,7 +37,7 @@ const MESES = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', '
 // molestar el uso real de "me olvidé de cargar esta reserva".
 const DIAS_LIMITE_RETRO = 365;
 
-export function crearSelectorFechas({ onCambio, excluirId = null, mostrarSinUnidad = false, permitirPasado = false } = {}) {
+export function crearSelectorFechas({ onCambio, excluirId = null, mostrarSinUnidad = false, permitirPasado = false, soloUnDia = false } = {}) {
   let unidadId = null;
   const cache = new Map(); // unidadId -> reservas[]
   const hoy = hoyISO();
@@ -72,6 +78,10 @@ export function crearSelectorFechas({ onCambio, excluirId = null, mostrarSinUnid
   }
 
   function pintarResumen() {
+    if (soloUnDia) {
+      resumen.textContent = entrada ? `Fecha elegida: ${fechaLegible(entrada)}.` : 'Elegí una fecha.';
+      return;
+    }
     if (!entrada && !salida) { resumen.textContent = 'Elegí la fecha de entrada.'; return; }
     if (entrada && !salida) { resumen.textContent = `Entrada: ${fechaLegible(entrada)} · elegí la salida.`; return; }
     const n = noches(entrada, salida);
@@ -145,6 +155,16 @@ export function crearSelectorFechas({ onCambio, excluirId = null, mostrarSinUnid
 
     const estado = estadoDia(iso, reservas);
     if (estado === 'pasado' || estado === 'ocupado' || estado === 'full') return;
+
+    if (soloUnDia) {
+      if (estado !== 'libre' && estado !== 'checkout') { toast('Esa fecha no está disponible', 'alerta'); return; }
+      entrada = iso; salida = iso;
+      pintarCalendario();
+      pintarResumen();
+      emitCambio();
+      element.dispatchEvent(new Event('input', { bubbles: true }));
+      return;
+    }
 
     if (!entrada || (entrada && salida)) {
       // Empezar selección nueva
@@ -329,6 +349,53 @@ export function abrirSelectorFechas({ desde = null, hasta = null, permitirPasado
     // el "¿descartar?" de intentarCerrar): en todos esos el overlay termina
     // saliendo del DOM, así que ese es el único lugar que hace falta mirar
     // para resolver la Promise, sin duplicar la lógica de cierre de cada uno.
+    const obs = new MutationObserver(() => {
+      if (document.body.contains(modal.overlay)) return;
+      obs.disconnect();
+      if (!aplicado) resolve(null);
+    });
+    obs.observe(document.body, { childList: true });
+  });
+}
+
+// Igual que abrirSelectorFechas(), pero para elegir UNA sola fecha (un
+// click, sin el flujo de entrada/salida). Para campos de una sola fecha
+// como la de un movimiento en Finanzas o la de un pago — no para rangos.
+//
+//   const iso = await abrirSelectorFecha({ fecha: hoyISO(), permitirPasado: true });
+//   if (iso) { ... }  // null si cancelan
+export function abrirSelectorFecha({ fecha = null, permitirPasado = false } = {}) {
+  return new Promise((resolve) => {
+    let aplicado = false;
+    const selector = crearSelectorFechas({ mostrarSinUnidad: true, permitirPasado, soloUnDia: true });
+    if (fecha) selector.setRangoInicial(fecha, fecha);
+
+    const btnCancelar = boton('Cancelar', { variante: 'danger', onClick: () => modal.intentarCerrar() });
+    const btnAplicar = boton('Aplicar', {
+      variante: 'exito',
+      onClick: () => {
+        const rango = selector.getRango();
+        if (!rango.entrada) {
+          toast('Elegí una fecha', 'alerta');
+          return;
+        }
+        aplicado = true;
+        modal.cerrar();
+        resolve(rango.entrada);
+      }
+    });
+
+    const box = el('div', { class: 'form modal--con-scroll' }, [
+      el('h3', { style: 'margin:0' }, 'Elegir fecha'),
+      selector.element,
+      el('div', { class: 'modal__acciones' }, [btnCancelar, btnAplicar])
+    ]);
+
+    const modal = abrirModal(box);
+
+    // Mismo mecanismo que abrirSelectorFechas(): un solo lugar para
+    // resolver null sin importar el camino de cierre (Cancelar, Escape,
+    // el "¿descartar?").
     const obs = new MutationObserver(() => {
       if (document.body.contains(modal.overlay)) return;
       obs.disconnect();
