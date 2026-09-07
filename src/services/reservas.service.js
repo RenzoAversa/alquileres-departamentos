@@ -43,13 +43,75 @@ export const ESTADOS_RESERVA = ['pendiente', 'confirmada', 'finalizada', 'cancel
 export const ORIGENES_RESERVA = ['interna', 'manual', 'booking_ics', 'airbnb_ics'];
 export function origenDe(reserva) { return reserva?.origen || 'interna'; }
 
+// Solapamiento puro entre un rango [entrada, salida) y una reserva
+// existente. Sin dependencias de UI ni de Firestore — la usan tanto el
+// chequeo rápido de la UI (verificarDisponibilidad) como la relectura
+// transaccional de create() de acá abajo, así los dos nunca pueden
+// quedar desalineados.
+function _solapa(r, entrada, salida) {
+  if (r.estado === 'cancelada') return false;
+  const e = new Date(entrada), s = new Date(salida);
+  const re = new Date(r.fechaEntrada), rs = new Date(r.fechaSalida);
+  return (e >= re && e < rs) || (s > re && s <= rs) || (e <= re && s >= rs);
+}
+
 class ReservasService extends BaseService {
   constructor() { super('reservas'); }
 
-  // Toda reserva nace 'interna' salvo que el llamador diga lo contrario
-  // (los futuros imports de iCal van a pasar su propio origen acá).
-  create(data) {
-    return super.create({ origen: 'interna', ...data });
+  // Alta de una reserva nueva, con el chequeo de solapamiento reforzado
+  // dentro de una transacción (ver AUDIT.md hallazgo H2).
+  //
+  // CONTENCIÓN ARTIFICIAL: Firestore solo aborta una transacción cuando
+  // detecta que OTRA escribió un documento que la primera había LEÍDO. Acá
+  // cada alta crea un documento de reserva NUEVO (id propio) — si la
+  // transacción SOLO releyera las reservas existentes, dos altas
+  // concurrentes para la misma unidad podrían leer exactamente el mismo
+  // estado (sin escribirlo) y cada una escribir su propio doc nuevo sin
+  // que Firestore vea ningún conflicto entre ellas: las dos commitean y
+  // termina habiendo doble reserva real, transacción o no. Por eso la
+  // transacción también lee y escribe `unidades/{unidadId}/_lock/reservas`
+  // (documento chico, dedicado, NO es el doc de la unidad en sí — no
+  // dispara los listeners de UI que sí escuchan `unidades/{unidadId}`).
+  // Dos altas concurrentes para la misma unidad ahora sí compiten por
+  // escribir ese mismo documento de lock: Firestore aborta y reintenta
+  // automáticamente una de las dos (runTransaction ya reintenta solo), y
+  // en el reintento la relectura de reservas de más abajo ve la reserva
+  // de la otra ya commiteada, así que ahí sí se rechaza por solapamiento.
+  async create(data) {
+    const { unidadId, fechaEntrada, fechaSalida } = data;
+    const nuevoRef = doc(this.col);
+    const lockRef = unidadId ? doc(db, 'unidades', unidadId, '_lock', 'reservas') : null;
+
+    await runTransaction(db, async (tx) => {
+      // Todas las lecturas antes que cualquier escritura (exigencia de
+      // Firestore). El get() del lock va primero: es el que hace que dos
+      // transacciones concurrentes para la misma unidad efectivamente
+      // choquen entre sí (ver comentario de arriba).
+      if (lockRef) await tx.get(lockRef);
+
+      // La búsqueda de candidatas queda DENTRO del callback (no es una
+      // lectura vía tx.get(), así que no participa del tracking de
+      // conflictos de la transacción) para que, si Firestore reintenta
+      // esta función por el conflicto del lock, la lista de candidatas
+      // también se vuelva a traer fresca en cada intento.
+      const candidatas = unidadId ? await this.getByUnidad(unidadId) : [];
+      // Relectura puntual DENTRO de la transacción: recién acá el dato es
+      // el que Firestore usa para decidir si hay conflicto de verdad.
+      const frescas = await Promise.all(
+        candidatas.map((r) => tx.get(doc(db, 'reservas', r.id)))
+      );
+      const ocupado = frescas.some((snap) => snap.exists() && _solapa(snap.data(), fechaEntrada, fechaSalida));
+      if (ocupado) {
+        const err = new Error('Esa unidad se acaba de reservar en esas fechas (lo hizo otra persona recién). Elegí otro rango o volvé a buscar disponibilidad.');
+        err.codigo = 'FECHAS_OCUPADAS';
+        throw err;
+      }
+
+      tx.set(nuevoRef, { origen: 'interna', ...data, creadoEn: serverTimestamp() });
+      if (lockRef) tx.set(lockRef, { ultimaEscritura: serverTimestamp(), ultimaReservaId: nuevoRef.id }, { merge: true });
+    });
+
+    return { id: nuevoRef.id, origen: 'interna', ...data };
   }
 
   getByUnidad(unidadId) {
@@ -84,14 +146,9 @@ class ReservasService extends BaseService {
   // Disponibilidad: detecta solapamiento de fechas para una unidad.
   async verificarDisponibilidad(unidadId, entrada, salida, excluirId = null) {
     const reservas = await this.getByUnidad(unidadId);
-    const e = new Date(entrada);
-    const s = new Date(salida);
     return !reservas.some((r) => {
       if (excluirId && r.id === excluirId) return false;
-      if (r.estado === 'cancelada') return false;
-      const re = new Date(r.fechaEntrada);
-      const rs = new Date(r.fechaSalida);
-      return (e >= re && e < rs) || (s > re && s <= rs) || (e <= re && s >= rs);
+      return _solapa(r, entrada, salida);
     });
   }
 

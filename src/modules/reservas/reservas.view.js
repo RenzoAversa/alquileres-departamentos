@@ -451,6 +451,11 @@ function abrirAltaReserva(unidades, onGuardar, preset = null, { gestionarPagos =
     btnCancelar.disabled = true;
     modal.setGuardando(true);
     try {
+      // Chequeo rápido para el caso obvio (evita ir a la red si ya se ve
+      // ocupada). La garantía real está en reservasService.create(), que
+      // relee las fechas dentro de una transacción justo antes de guardar
+      // — por eso este chequeo de acá no reemplaza a ese, solo adelanta el
+      // feedback cuando ni hace falta intentar.
       const libre = await reservasService.verificarDisponibilidad(unidadId, entrada, salida);
       if (!libre) {
         toast('Esa unidad ya está reservada en esas fechas', 'alerta');
@@ -489,7 +494,8 @@ function abrirAltaReserva(unidades, onGuardar, preset = null, { gestionarPagos =
       modal.cerrar();
       if (onGuardar) onGuardar();
     } catch (err) {
-      console.error(err); toast('No se pudo guardar', 'alerta');
+      console.error(err);
+      toast(err.codigo === 'FECHAS_OCUPADAS' ? err.message : 'No se pudo guardar', 'alerta');
       btn.disabled = false; btn.textContent = 'Guardar reserva';
       btnCancelar.disabled = false; modal.setGuardando(false);
     }

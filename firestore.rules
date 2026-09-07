@@ -89,6 +89,25 @@ service cloud.firestore {
     match /unidades/{doc} {
       allow read: if esStaff();
       allow create, update, delete: if esOperador();
+
+      // Documento de contención artificial contra doble-reserva en altas
+      // concurrentes de la misma unidad (AUDIT.md H2). Sin esto, dos
+      // transacciones que solo LEEN las reservas existentes y escriben
+      // cada una un documento de reserva NUEVO y distinto no generan
+      // ningún conflicto real para Firestore — su control de concurrencia
+      // optimista solo aborta una transacción cuando detecta que otra
+      // escribió un documento que la primera había LEÍDO, y acá cada alta
+      // escribe su propio doc, nunca el de la otra. Al leer y escribir
+      // ESTE documento compartido dentro de la misma transacción que crea
+      // la reserva (ver reservas.service.js > create()), dos altas
+      // concurrentes para la misma unidad sí compiten por el mismo
+      // documento: Firestore aborta y reintenta una, y en el reintento la
+      // relectura de reservas ya ve la otra reserva recién commiteada.
+      // Mismo permiso que la creación de reservas (esStaff()) — no más
+      // permisivo que eso.
+      match /_lock/{lockId} {
+        allow read, write: if esStaff();
+      }
     }
 
     // Reservas: cualquier rol operativo lee y crea (toda alta arranca sin
