@@ -135,7 +135,7 @@ un solo cliente, con eso alcanza. El archivo trae comentado cómo agregar **role
   Resumen, Movimientos, Reservas, Ocupación y Saldos, con encabezados con color y
   formato de miles. Botón en Dashboard (período elegido) y en Finanzas (mes).
 - **Métricas** (`core/metricas.js`): cálculos puros de ocupación/períodos, compartidos
-  entre dashboard y Excel (los números siempre coinciden). Con tests.
+  entre dashboard y Excel (los números siempre coinciden).
 
 ## Roles y permisos
 
@@ -198,11 +198,13 @@ La estructura ya lo contempla con el feature flag `features.web`. Cuando lo arme
   precioNoche, ubicacion, estado`.
 - **`reservas`** — `unidadId, unidadNombre, edificioId, huesped{}, fechaEntrada,
   fechaSalida, noches, precioTotal, senia, saldo, estado, canal`.
-- **`gastos`** — ingresos/egresos: `tipo, categoria, monto, fecha, unidadId?, reservaId?,
-  descripcion`.
+- **`movimientos`** — ingresos/egresos/transferencias: `tipo ('ingreso'|'egreso'|
+  'transferencia'), monto, moneda, fecha, categoria, cuentaId (ingreso/egreso) |
+  cuentaOrigen+cuentaDestino (transferencia), unidadId?, reservaId?, descripcion, nota?`.
 
 Relación: un **edificio** agrupa muchas **unidades** (por `edificioId`); una **unidad**
-tiene muchas **reservas**; los **gastos** se imputan opcionalmente a una unidad/reserva.
+tiene muchas **reservas**; los **movimientos** se imputan opcionalmente a una
+unidad/reserva y siempre afectan el saldo de una o dos `cuentas`.
 
 > Si más adelante pasás a multi-tenant, estas colecciones se moverían bajo
 > `organizaciones/{orgId}/…` y solo cambiaría `base.service.js`. El resto queda igual.
