@@ -1,9 +1,16 @@
-// Configuración: datos de la cuenta, módulos y (solo dueño) gestión de usuarios.
+// Configuración: datos de la cuenta, módulos y (solo dueño) gestión de
+// usuarios + backup manual.
 import { appConfig } from '../../firebase/init.js';
 import { logout } from '../../core/auth.js';
-import { el, toast, confirmar, botonRecargar, crearPaginado } from '../../core/ui.js';
+import { el, toast, confirmar, botonRecargar, crearPaginado, descargarJSON } from '../../core/ui.js';
+import { hoyISO } from '../../core/metricas.js';
 import { sesion, ROLES } from '../../core/sesion.js';
 import { usuariosService } from '../../services/usuarios.service.js';
+import { edificiosService } from '../../services/edificios.service.js';
+import { unidadesService } from '../../services/unidades.service.js';
+import { reservasService } from '../../services/reservas.service.js';
+import { cuentasService } from '../../services/cuentas.service.js';
+import { movimientosService } from '../../services/movimientos.service.js';
 
 const fila = (k, v) => el('div', { class: 'lista__item' }, [el('span', { class: 'muted' }, k), el('strong', {}, v)]);
 const campo = (label, input) => el('label', { class: 'form__campo' }, [el('span', {}, label), input]);
@@ -12,6 +19,46 @@ const selectRoles = (valor) => {
   Object.entries(ROLES).forEach(([k, label]) => s.append(el('option', { value: k, selected: (valor === k) || undefined }, label)));
   return s;
 };
+
+// Nombre de archivo a partir del nombre del cliente: sin espacios/acentos,
+// para que sea un nombre de archivo válido en cualquier sistema operativo.
+function slug(s) {
+  return (s || 'cliente')
+    .normalize('NFD').replace(/\p{Diacritic}/gu, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/(^-|-$)/g, '') || 'cliente';
+}
+
+// Backup crudo: TODAS las colecciones, documento por documento, tal cual
+// están en Firestore. No es el reporte de core/excel.js (que es un resumen
+// curado para leer) — esto es para poder reconstruir los datos si hiciera
+// falta, no para leerlo cómodo.
+async function descargarBackup(btn) {
+  btn.disabled = true; btn.textContent = 'Generando…';
+  try {
+    const [edificios, unidades, reservas, cuentas, movimientos, usuarios] = await Promise.all([
+      edificiosService.getAll(),
+      unidadesService.getAll(),
+      reservasService.getAll(),
+      cuentasService.getAll(),
+      movimientosService.getAll(),
+      usuariosService.getAll()
+    ]);
+    const backup = {
+      generadoEn: new Date().toISOString(),
+      cliente: appConfig.cliente.nombre,
+      edificios, unidades, reservas, cuentas, movimientos, usuarios
+    };
+    descargarJSON(`backup-${slug(appConfig.cliente.nombre)}-${hoyISO()}.json`, backup);
+    toast('Backup descargado', 'ok');
+  } catch (err) {
+    console.error(err);
+    toast('No se pudo generar el backup', 'alerta');
+  } finally {
+    btn.disabled = false; btn.textContent = 'Descargar backup completo';
+  }
+}
 
 export async function render(container) {
   container.append(el('h1', { class: 'page-title' }, 'Configuración'));
@@ -104,6 +151,17 @@ export async function render(container) {
       paginadoUsuarios.setItems(usuarios);
     }
     cargarUsuarios();
+  }
+
+  // ---- Backup manual (solo dueño, mismo criterio que Usuarios y roles) ----
+  if (sesion.puede('gestionarUsuarios')) {
+    const btnBackup = el('button', { class: 'btn btn--ghost', type: 'button' }, 'Descargar backup completo');
+    btnBackup.addEventListener('click', () => descargarBackup(btnBackup));
+    container.append(el('div', { class: 'card' }, [
+      el('h3', {}, 'Backup'),
+      el('p', { class: 'muted small' }, 'Descarga un archivo .json con todos los datos tal cual están en la base (edificios, departamentos, reservas, cuentas, movimientos y usuarios). Es un respaldo crudo, no un reporte para leer — para eso está "Exportar a Excel".'),
+      btnBackup
+    ]));
   }
 
   // ---- Módulos activos ----

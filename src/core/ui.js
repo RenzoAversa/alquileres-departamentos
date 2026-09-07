@@ -372,3 +372,16 @@ export function miniatura(url, alt = '') {
   img.addEventListener('error', () => { img.replaceWith(el('div', { class: 'miniatura miniatura--vacia' }, '🏠')); }, { once: true });
   return img;
 }
+
+// Descarga un objeto como archivo .json (backup, exports crudos, etc.).
+// Todo pasa por acá para no repetir el patrón Blob + <a download> cada vez
+// que algo necesite bajar JSON.
+export function descargarJSON(nombreArchivo, objeto) {
+  const blob = new Blob([JSON.stringify(objeto, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = el('a', { href: url, download: nombreArchivo });
+  document.body.append(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
