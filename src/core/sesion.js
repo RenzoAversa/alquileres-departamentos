@@ -3,8 +3,12 @@
 //   - Cada usuario (doc en `usuarios`, id = email) tiene un rol.
 //   - Roles: dueño, encargado, trabajador (+ sin_asignar por defecto,
 //     y "visitante" que se sumará con la web pública).
-//   - Bootstrap: el PRIMER usuario de un cliente nuevo queda como dueño;
-//     los demás entran como "sin_asignar" hasta que el dueño les da un rol.
+//   - Bootstrap: TODO usuario nuevo entra como "sin_asignar" — nadie puede
+//     auto-asignarse un rol (firestore.rules lo exige: el alta del propio
+//     doc solo se permite con rol 'sin_asignar'). El dueño de un cliente
+//     nuevo se promueve a mano, una única vez, desde la consola de
+//     Firestore (ver ONBOARDING.md); después administra el resto de los
+//     roles desde Configuración. Ver AUDIT.md, hallazgo C1.
 // ============================================================
 import { usuariosService } from '../services/usuarios.service.js';
 
@@ -41,12 +45,14 @@ export async function cargarSesion(user) {
   try { perfil = await usuariosService.getById(email); } catch { perfil = null; }
 
   if (!perfil) {
-    let equipo = [];
-    try { equipo = await usuariosService.listar(); } catch { equipo = []; }
-    const rol = equipo.length === 0 ? 'dueño' : 'sin_asignar';
+    // Autoalta del propio perfil: firestore.rules solo permite crearlo con
+    // rol 'sin_asignar' (nadie se autoasigna un rol). Si la escritura
+    // falla igual (ej. sin conexión), el fallback local también queda en
+    // 'sin_asignar' — nunca hay que asumir más acceso del que Firestore
+    // puede respaldar.
     const nombre = email.split('@')[0] || 'usuario';
-    try { perfil = await usuariosService.crear(email, nombre, rol); }
-    catch { perfil = { email, nombre, rol }; }
+    try { perfil = await usuariosService.crear(email, nombre, 'sin_asignar'); }
+    catch { perfil = { email, nombre, rol: 'sin_asignar' }; }
   }
 
   sesion.uid = user.uid;

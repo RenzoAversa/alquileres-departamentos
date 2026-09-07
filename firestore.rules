@@ -2,13 +2,33 @@ rules_version = '2';
 
 // ============================================================
 // REGLAS CON CONTROL POR ROL (single-tenant).
-// El rol vive en usuarios/{email}. Se enforza server-side:
-//   - Finanzas (cuentas, movimientos): solo dueño / encargado.
-//   - Gestión de usuarios (cambiar/quitar): solo dueño.
-//   - Operación (edificios, unidades, reservas): cualquier autenticado.
-// Nota: el alta del propio usuario está permitida (bootstrap y
-// auto-registro). Para un bloqueo estricto de auto-escalada de rol se
-// recomienda migrar a custom claims (requiere una Cloud Function).
+// El rol vive en usuarios/{email}. Espeja la matriz de capacidades de
+// src/core/sesion.js — ver AUDIT.md (2026-09-07) para el detalle de cada
+// hallazgo referenciado abajo.
+//
+//   - Usuarios: el alta del propio doc SIEMPRE queda en rol 'sin_asignar'
+//     (el cliente no puede elegirse el rol al crearse). Solo el dueño
+//     puede crear el doc de OTRO usuario (con el rol que decida) y solo
+//     el dueño puede cambiar/quitar un rol ya asignado. Cierra AUDIT.md
+//     hallazgo C1 (escalamiento de privilegios): antes, cualquier cuenta
+//     autenticada podía auto-crearse con rol:'dueño'.
+//   - Finanzas (cuentas, movimientos): solo dueño / encargado (sin cambios;
+//     ya estaba correctamente restringido).
+//   - Propiedades (edificios, unidades): lectura para cualquier rol
+//     operativo; alta/edición/borrado solo dueño/encargado
+//     (gestionarPropiedades en sesion.js).
+//   - Reservas: cualquier rol operativo puede leer y crear (así funciona
+//     hoy la UI: el botón "Nueva reserva" está disponible para
+//     trabajador); editar/eliminar (incluye tocar pagado/saldo/
+//     estadoPago/precioTotal, hoy solo alcanzables vía
+//     registrarPago()/anularPago()/editar()) queda restringido a
+//     dueño/encargado, igual que los botones "Editar"/"Eliminar"/
+//     "Ver·Pagar" en la UI (editarReservas/eliminar/gestionarPagos en
+//     sesion.js). Cierra AUDIT.md hallazgos H1 y H3: antes, cualquier
+//     autenticado podía editar/borrar cualquier reserva o escribir
+//     directamente sus campos de pago, sin pasar por la transacción
+//     atómica del servicio.
+//   - Gestión de usuarios (cambiar/quitar rol): solo dueño.
 // ============================================================
 service cloud.firestore {
   match /databases/{database}/documents {
@@ -23,12 +43,24 @@ service cloud.firestore {
     }
     function verDinero() { return rol() in ['dueño', 'encargado']; }
     function esDueno() { return rol() == 'dueño'; }
+    // dueño + encargado: mismo set de roles "de gestión" que verDinero(),
+    // usado acá para propiedades/reservas (nombre propio para que la regla
+    // se lea en sus propios términos, no como si fuera sobre dinero).
+    function esOperador() { return rol() in ['dueño', 'encargado']; }
+    // Cualquier rol con acceso operativo real (todos menos sin_asignar).
+    function esStaff() { return rol() in ['dueño', 'encargado', 'trabajador']; }
 
     // Usuarios / roles
     match /usuarios/{email} {
       allow read: if auth();
-      // Puede crearse el propio doc (bootstrap/auto-registro) o el dueño a cualquiera
-      allow create: if auth() && (email == emailUid() || esDueno());
+      // Alta: el propio usuario puede crear su doc, pero SIEMPRE con
+      // rol 'sin_asignar' — no puede elegir su propio rol (AUDIT.md C1).
+      // El dueño puede crear el doc de cualquiera con cualquier rol (alta
+      // manual desde Configuración → Usuarios y roles).
+      allow create: if auth() && (
+        (email == emailUid() && request.resource.data.rol == 'sin_asignar') ||
+        esDueno()
+      );
       // Cambiar rol o quitar: solo dueño
       allow update, delete: if esDueno();
     }
@@ -37,9 +69,28 @@ service cloud.firestore {
     match /cuentas/{doc}      { allow read, write: if verDinero(); }
     match /movimientos/{doc}  { allow read, write: if verDinero(); }
 
-    // Operación: cualquier usuario autenticado
-    match /edificios/{doc}    { allow read, write: if auth(); }
-    match /unidades/{doc}     { allow read, write: if auth(); }
-    match /reservas/{doc}     { allow read, write: if auth(); }
+    // Propiedades: cualquier rol operativo lee; alta/edición/borrado solo
+    // dueño/encargado.
+    match /edificios/{doc} {
+      allow read: if esStaff();
+      allow create, update, delete: if esOperador();
+    }
+    match /unidades/{doc} {
+      allow read: if esStaff();
+      allow create, update, delete: if esOperador();
+    }
+
+    // Reservas: cualquier rol operativo lee y crea (toda alta arranca sin
+    // pago, igual que hace hoy reservas.view.js — el pago retroactivo es
+    // una escritura aparte vía registrarPago()); editar/eliminar (incluye
+    // los campos de pago) solo dueño/encargado.
+    match /reservas/{doc} {
+      allow read: if esStaff();
+      allow create: if esStaff()
+        && request.resource.data.pagado == 0
+        && request.resource.data.saldo == request.resource.data.precioTotal
+        && request.resource.data.estadoPago == 'sin_pagar';
+      allow update, delete: if esOperador();
+    }
   }
 }

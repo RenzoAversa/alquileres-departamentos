@@ -146,8 +146,10 @@ finanzas, sin usuarios) y **trabajador** (reservas / disponibilidad / calendario
 - La matriz de permisos está en `core/sesion.js` (un solo lugar para ajustarla).
 - El menú y las vistas se adaptan al rol; las restricciones también están reforzadas en
   `firestore.rules` (finanzas y usuarios protegidos por rol).
-- Perfiles en `usuarios/{email}`. El primer usuario que entra queda como dueño; después el
-  dueño administra los roles desde Configuración.
+- Perfiles en `usuarios/{email}`. Nadie puede auto-asignarse un rol (por regla de
+  Firestore, ver `firestore.rules`): el dueño se promueve a mano una única vez por cliente
+  nuevo (ver ONBOARDING.md) y desde ahí administra el resto de los roles desde
+  Configuración.
 
 ## Estados de pago (reservas)
 
