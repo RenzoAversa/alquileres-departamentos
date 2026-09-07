@@ -12,6 +12,15 @@ rules_version = '2';
 //     el dueño puede cambiar/quitar un rol ya asignado. Cierra AUDIT.md
 //     hallazgo C1 (escalamiento de privilegios): antes, cualquier cuenta
 //     autenticada podía auto-crearse con rol:'dueño'.
+//     Lectura: cualquiera puede leer SU PROPIO doc siempre (lo necesita
+//     el bootstrap: una cuenta 'sin_asignar' recién logueada tiene que
+//     poder leer su propio perfil para mostrar la pantalla de "cuenta sin
+//     permisos"), pero leer el perfil de OTRA persona pasa a requerir ya
+//     tener un rol asignado. Antes cualquier autenticado (incluida una
+//     cuenta 'sin_asignar') podía leer el perfil de cualquier otro
+//     usuario del equipo — hallazgo de severidad baja detectado después
+//     del audit inicial (no hay dinero ni datos de huéspedes de por
+//     medio), corregido igual por ser más laxo de lo necesario.
 //   - Finanzas (cuentas, movimientos): solo dueño / encargado (sin cambios;
 //     ya estaba correctamente restringido).
 //   - Propiedades (edificios, unidades): lectura para cualquier rol
@@ -52,7 +61,9 @@ service cloud.firestore {
 
     // Usuarios / roles
     match /usuarios/{email} {
-      allow read: if auth();
+      // El propio perfil, siempre (bootstrap); el de otra persona, solo
+      // con un rol ya asignado.
+      allow read: if esStaff() || (auth() && email == emailUid());
       // Alta: el propio usuario puede crear su doc, pero SIEMPRE con
       // rol 'sin_asignar' — no puede elegir su propio rol (AUDIT.md C1).
       // El dueño puede crear el doc de cualquiera con cualquier rol (alta
