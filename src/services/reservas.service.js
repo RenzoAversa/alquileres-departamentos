@@ -34,8 +34,23 @@ export const ETIQUETAS_PAGO = {
 // Estados operativos de la reserva
 export const ESTADOS_RESERVA = ['pendiente', 'confirmada', 'finalizada', 'cancelada'];
 
+// Origen del bloqueo de fechas: preparación para sincronización iCal
+// (Booking.com/Airbnb) y bloqueos manuales del dueño (ver AUDIT.md, fase 2).
+// Todavía no se usa en ningún lado más que acá: hoy toda reserva se crea
+// 'interna' (única vía de alta que existe). Los documentos creados antes de
+// este campo no lo tienen — origenDe() los trata como 'interna', que es lo
+// que efectivamente son.
+export const ORIGENES_RESERVA = ['interna', 'manual', 'booking_ics', 'airbnb_ics'];
+export function origenDe(reserva) { return reserva?.origen || 'interna'; }
+
 class ReservasService extends BaseService {
   constructor() { super('reservas'); }
+
+  // Toda reserva nace 'interna' salvo que el llamador diga lo contrario
+  // (los futuros imports de iCal van a pasar su propio origen acá).
+  create(data) {
+    return super.create({ origen: 'interna', ...data });
+  }
 
   getByUnidad(unidadId) {
     return this.buscar([['unidadId', '==', unidadId]]);
