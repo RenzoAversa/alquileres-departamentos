@@ -21,9 +21,15 @@ const MOSTRAR_FOTOS = !!appConfig.features.fotos;
 const campo = (label, input) => el('label', { class: 'form__campo' }, [el('span', {}, label), input]);
 
 function pinIcon(estado = 'base') {
+  // L.divIcon() de Leaflet solo acepta el marcado como string (no un nodo
+  // real), así que no puede pasar por el() como el resto de la app. Se
+  // arma con el() igual y se serializa con outerHTML, para que quede
+  // texto plano por el mismo camino seguro (sin interpolar `estado`
+  // directo en un template string) aunque el resultado final sea HTML.
+  const span = el('span', { class: `map-pin map-pin--${estado}` });
   return L.divIcon({
     className: 'map-pin-wrap',
-    html: `<span class="map-pin map-pin--${estado}"></span>`,
+    html: span.outerHTML,
     iconSize: [22, 22],
     iconAnchor: [11, 11],
     popupAnchor: [0, -14]
