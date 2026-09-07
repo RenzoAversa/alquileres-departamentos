@@ -1,5 +1,15 @@
 export default [
   {
+    // Único archivo que corre tanto en el navegador como (para los tests
+    // con emulador) en Node: necesita `process.env` detrás de un
+    // `typeof process !== 'undefined'` para conectarse al emulador. No se
+    // agrega `process` al global compartido de abajo a propósito — ese
+    // listado existe para detectar justamente el error de usar una API de
+    // Node donde no corre Node (el navegador real).
+    files: ["src/firebase/init.js"],
+    languageOptions: { globals: { process: "readonly" } }
+  },
+  {
     files: ["src/**/*.js"],
     languageOptions: {
       ecmaVersion: 2022,
