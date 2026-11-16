@@ -1,5 +1,11 @@
 # 🚀 Alta de un cliente nuevo — paso a paso
 
+> **Procedimiento legacy, pendiente de endurecimiento (2026-11-15).** Describe el
+> modelo actual por cliente; completarlo no certifica producción. Revisar la
+> [auditoría vigente](docs/CODEBASE_AUDIT.md) y los gates del
+> [roadmap](docs/REFACTOR_ROADMAP.md) antes de nuevas publicaciones o datos reales.
+> No habilitar acceso público ni documentos privados con estas instrucciones.
+
 Cada cliente = **su propio proyecto de Firebase** (base de datos aislada + cuota gratis
 propia) y **su propia publicación** (GitHub Pages o Firebase Hosting). El código es el
 mismo; solo cambia un archivo de configuración.
@@ -56,7 +62,8 @@ color (`cliente.colorPrimario`).
 
 ## 3. Subir las reglas de seguridad (una vez)
 
-Las reglas hacen que la base solo sea accesible con login. Subilas con la Firebase CLI:
+Las reglas actuales exigen roles además de login, pero conservan las brechas documentadas
+en la auditoría. El comando siguiente publica reglas e índices; no subsana esas brechas:
 
 ```bash
 npm install                     # ya incluye firebase-tools como devDependency

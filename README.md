@@ -8,6 +8,12 @@ archivo de configuración.
 Arquitectura sin bundler: JavaScript con **ES Modules** nativos + Firebase desde CDN.
 No necesitás compilar nada.
 
+> **Estado de ingeniería (2026-11-15):** la app tiene RBAC y transacciones, pero conserva
+> brechas de integridad y privacidad. Ver la [auditoría vigente](docs/CODEBASE_AUDIT.md),
+> las [reglas de contribución](AGENTS.md), los [ADR](docs/ARCHITECTURE_DECISIONS.md),
+> el [estándar UX](docs/UX_GUIDELINES.md) y el [roadmap](docs/REFACTOR_ROADMAP.md).
+> Esos documentos distinguen código actual de arquitectura pendiente; no certifican producción.
+
 ---
 
 ## 📂 Estructura
@@ -50,8 +56,9 @@ alquileres-app/
 ```
 
 ### Las dos piezas clave de la escalabilidad
-1. **`services/base.service.js`** — todo acceso a datos pasa por acá. Si el día de mañana
-   migrás a multi-tenant o cambiás de backend, tocás **este archivo**, no los módulos.
+1. **`services/base.service.js`** — centraliza CRUD común; reservas, movimientos y
+   notificaciones también acceden directamente al SDK. Migrar a multiorganización requiere
+   reglas, rutas, comandos, queries, datos y lectores coordinados, no cambiar un único archivo.
 2. **`config/client.config.js`** — el único archivo que cambia por cliente (claves de
    Firebase, nombre, color y qué módulos están activos).
 
@@ -108,9 +115,11 @@ clientes se hace por script; si algún día son muchos, ahí conviene pasar a mu
 
 ## 🔐 Seguridad
 
-`firestore.rules` exige que el usuario esté **autenticado**. Como todo el proyecto es de
-un solo cliente, con eso alcanza. El archivo trae comentado cómo agregar **roles**
-(admin / staff / contable) cuando lo necesites.
+`firestore.rules` aplica roles **dueño / encargado / trabajador / sin_asignar** desde
+`usuarios/{email}`. El login es necesario, pero no garantiza por sí solo autorización,
+privacidad ni integridad financiera. Los documentos de reservas/unidades todavía mezclan
+operación y dinero, y las escrituras directas pueden omitir invariantes del servicio.
+Consultar [hallazgos y límites actuales](docs/CODEBASE_AUDIT.md) antes de ampliar el acceso.
 
 > Importante: aunque sea single-tenant, **el login es obligatorio**. Sin las reglas +
 > auth, la base de Firestore quedaría abierta a cualquiera con la URL.
@@ -139,9 +148,11 @@ un solo cliente, con eso alcanza. El archivo trae comentado cómo agregar **role
 
 ## Roles y permisos
 
-Tres roles: **dueño** (todo + gestión de usuarios), **encargado** (todo lo operativo +
-finanzas, sin usuarios) y **trabajador** (reservas / disponibilidad / calendario / mapa,
-**sin ver dinero**). El visitante queda para la web pública.
+Tres roles: **dueño** (todo + gestión de usuarios), **encargado** (operación y finanzas,
+sin gestión de usuarios) y **trabajador** (dashboard, reservas, disponibilidad, calendario
+y configuración). La UI oculta dinero al trabajador, pero todavía puede leer campos
+financieros dentro de documentos operativos: corrección pendiente H-01. No existe portal
+de inquilinos ni acceso público implementado.
 
 - La matriz de permisos está en `core/sesion.js` (un solo lugar para ajustarla).
 - El menú y las vistas se adaptan al rol; las restricciones también están reforzadas en
@@ -173,10 +184,10 @@ Firebase + su propia publicación (GitHub Pages o Firebase Hosting).
 
 ## Sobre índices de Firestore
 
-Todas las consultas de la app son de **un solo campo** (`fechaSalida >= X`, `fecha` entre
-A y B, `unidadId ==`, `edificioId ==`), y Firestore indexa esos automáticamente, así que
-ya son rápidas. No se declaran índices compuestos para no agregar costo de escritura
-innecesario.
+Las consultas actuales usan índices de un campo (`fechaSalida`, `fecha`,
+`unidadId`, `edificioId`), por eso `firestore.indexes.json` no contiene compuestos.
+Eso no acota el volumen leído: faltan límites, cursores y ventanas superiores.
+Los índices de las consultas nuevas se incorporarán junto a ellas según el ADR-05.
 
 ---
 
@@ -185,8 +196,9 @@ innecesario.
 La estructura ya lo contempla con el feature flag `features.web`. Cuando lo armemos:
 - Se agrega una carpeta `web/` (o páginas en la raíz) con el sitio público:
   landing + buscador de disponibilidad + reserva online.
-- El sitio público **lee** las mismas colecciones (`unidades`, `reservas`) usando los
-  mismos servicios, pero sin login (con reglas de solo-lectura para lo público).
+- El sitio público consumirá un endpoint o proyección de disponibilidad depurada,
+  sin datos de huéspedes ni finanzas privadas. **Nunca abrir la lectura de reservas
+  internas** ni reutilizar un documento privado completo para disponibilidad pública.
 - El panel de gestión (esto) sigue detrás de login.
 
 ---
@@ -206,5 +218,6 @@ Relación: un **edificio** agrupa muchas **unidades** (por `edificioId`); una **
 tiene muchas **reservas**; los **movimientos** se imputan opcionalmente a una
 unidad/reserva y siempre afectan el saldo de una o dos `cuentas`.
 
-> Si más adelante pasás a multi-tenant, estas colecciones se moverían bajo
-> `organizaciones/{orgId}/…` y solo cambiaría `base.service.js`. El resto queda igual.
+> Compartir una base entre organizaciones requiere la migración de aislamiento,
+> permisos, comandos, consultas y documentos del [ADR-01](docs/ARCHITECTURE_DECISIONS.md).
+> El modelo actual sigue siendo un proyecto Firebase por cliente.

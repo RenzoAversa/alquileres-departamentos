@@ -1,5 +1,9 @@
 # AUDIT.md — Auditoría inicial
 
+> **Registro histórico:** este texto describe el 2026-09-07 y conserva hallazgos que
+> fueron corregidos después. No usarlo como diagnóstico actual.
+> La auditoría vigente es [docs/CODEBASE_AUDIT.md](docs/CODEBASE_AUDIT.md), del 2026-11-15.
+
 Fecha: 2026-09-07
 Alcance: repositorio completo, rama `dev`, estado actual (sin modificar código).
 
